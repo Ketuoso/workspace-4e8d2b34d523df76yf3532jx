@@ -33,5 +33,5 @@ protected:
 
 private:
 
-	UPROPERTY(EditInstanceOnly, Category = "Phase") EFR_MatchPhase CurrentMatchPhase = EFR_MatchPhase::Playing;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Phase", meta = (AllowPrivateAccess = "true")) EFR_MatchPhase CurrentMatchPhase = EFR_MatchPhase::Playing;
 };

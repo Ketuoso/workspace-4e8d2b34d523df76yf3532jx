@@ -72,26 +72,32 @@ void AFR_PlayerController::HandleMatchPhaseChanged(EFR_MatchPhase NewPhase, EFR_
 	switch (NewPhase)
 	{
 	case EFR_MatchPhase::Playing:
-	{
-		break;
-	}
-	case EFR_MatchPhase::EscapeAvaible:
+	case EFR_MatchPhase::EscapeAvailable:
 	{
 		break;
 	}
 	case EFR_MatchPhase::Won:
-	{	
-		GetPawn()->DisableInput(this);
-		break;
-	}
 	case EFR_MatchPhase::Lost:
 	{
-		GetPawn()->DisableInput(this);
+		GetWorldTimerManager().ClearTimer(TimerLookAtRotation);
+		DisableInput(this);
+
+		SetIgnoreMoveInput(true);
+		SetIgnoreLookInput(true);
 		break;
 	}
 	default:
 		break;
 	}
+}
+
+bool AFR_PlayerController::IsGameplayInputAllowed() const
+{
+	const UWorld* World = GetWorld();
+	const AFR_GameState* FR_GameState = World ? World->GetGameState<AFR_GameState>() : nullptr;
+	if (!FR_GameState) return false;
+	const EFR_MatchPhase Phase = FR_GameState->GetMatchPhase();
+	return Phase == EFR_MatchPhase::Playing || Phase == EFR_MatchPhase::EscapeAvailable;
 }
 
 void AFR_PlayerController::InitializeInputMappings()
@@ -110,6 +116,7 @@ void AFR_PlayerController::InitializeInputMappings()
 
 void AFR_PlayerController::Move(const FInputActionValue& InputActionValue)
 {
+	if (!IsGameplayInputAllowed()) return;
 	AFR_CharacterBase* OwnerCharacter = Cast< AFR_CharacterBase>(GetPawn());
 	if (!OwnerCharacter) return;
 	const FVector2D InputAxis = InputActionValue.Get<FVector2D>();
@@ -118,10 +125,12 @@ void AFR_PlayerController::Move(const FInputActionValue& InputActionValue)
 
 void AFR_PlayerController::StartedInteract()
 {
+	if (!IsGameplayInputAllowed()) return;
 }
 
 void AFR_PlayerController::StartedSprint()
 {
+	if (!IsGameplayInputAllowed()) return;
 	AFR_CharacterBase* OwnerCharacter = Cast< AFR_CharacterBase>(GetPawn());
 	if (!OwnerCharacter) return;
 
@@ -138,6 +147,7 @@ void AFR_PlayerController::CompletedSprint()
 
 void AFR_PlayerController::StartedCrouch()
 {
+	if (!IsGameplayInputAllowed()) return;
 	AFR_CharacterBase* OwnerCharacter = Cast< AFR_CharacterBase>(GetPawn());
 	if (!OwnerCharacter) return;
 
@@ -154,6 +164,7 @@ void AFR_PlayerController::CompletedCrouch()
 
 void AFR_PlayerController::LookAtRotation()
 {
+	if (!IsGameplayInputAllowed()) return;
 	AFR_CharacterBase* OwnerCharacter = Cast< AFR_CharacterBase>(GetPawn());
 	if (!OwnerCharacter) return;
 

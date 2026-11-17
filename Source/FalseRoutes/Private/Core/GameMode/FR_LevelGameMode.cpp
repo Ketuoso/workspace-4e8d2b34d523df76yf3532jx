@@ -11,7 +11,7 @@ AFR_LevelGameMode::AFR_LevelGameMode()
 	PlayerControllerClass = AFR_PlayerController::StaticClass();
 }
 
-bool AFR_LevelGameMode::CanTransition(EFR_MatchPhase CurrentPhase, EFR_MatchPhase NewPhase)
+bool AFR_LevelGameMode::CanTransition(EFR_MatchPhase CurrentPhase, EFR_MatchPhase NewPhase) const
 {
 	if (CurrentPhase == NewPhase)
 	{
@@ -25,7 +25,7 @@ bool AFR_LevelGameMode::CanTransition(EFR_MatchPhase CurrentPhase, EFR_MatchPhas
 		return true;
 		break;
 	}
-	case EFR_MatchPhase::EscapeAvaible:
+	case EFR_MatchPhase::EscapeAvailable:
 	{
 		if (NewPhase == EFR_MatchPhase::Playing) return false;
 		return true;
@@ -63,11 +63,11 @@ bool AFR_LevelGameMode::TryChangeMatchPhase(EFR_MatchPhase NewPhase)
 
 void AFR_LevelGameMode::RequestEscapeAvailable()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Переход в фазу EscapeAvaible"));
-	bool bSuccesses = TryChangeMatchPhase(EFR_MatchPhase::EscapeAvaible);
+	UE_LOG(LogTemp, Warning, TEXT("Переход в фазу EscapeAvailable"));
+	bool bSuccesses = TryChangeMatchPhase(EFR_MatchPhase::EscapeAvailable);
 	if (!bSuccesses)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Переход в фазу EscapeAvaible не удалось"));
+		UE_LOG(LogTemp, Warning, TEXT("Переход в фазу EscapeAvailableне удалось"));
 	}
 }
 

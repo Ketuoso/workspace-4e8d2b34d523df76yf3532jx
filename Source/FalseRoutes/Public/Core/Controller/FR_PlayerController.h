@@ -41,6 +41,8 @@ private:
 
 	UFUNCTION() void HandleMatchPhaseChanged(EFR_MatchPhase NewPhase, EFR_MatchPhase OldPhase);
 
+	bool IsGameplayInputAllowed() const;
+
 	//BEGIN PLAY
 
 	void InitializeInputMappings();
@@ -57,6 +59,8 @@ private:
 	void CompletedCrouch();
 
 	void LookAtRotation();
+
+
 
 	FTimerHandle TimerLookAtRotation;
 

@@ -7,7 +7,7 @@ UENUM(BlueprintType)
 enum class EFR_MatchPhase : uint8
 {
 	Playing,
-	EscapeAvaible,
+	EscapeAvailable,
 	Won,
 	Lost
 };
