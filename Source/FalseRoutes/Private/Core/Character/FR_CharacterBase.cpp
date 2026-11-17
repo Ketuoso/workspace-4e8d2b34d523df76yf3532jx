@@ -8,6 +8,9 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/ArrowComponent.h"
+#include "Core/GameState/FR_GameState.h"
+#include "Core/Interface/FR_Interactable.h"
+#include "Core/Components/FR_InteractionComponent.h"
 
 
 AFR_CharacterBase::AFR_CharacterBase()
@@ -24,6 +27,8 @@ AFR_CharacterBase::AFR_CharacterBase()
 
 	InteractionSphere = CreateDefaultSubobject<USphereComponent>(TEXT("InteractionSphere"));
 	InteractionSphere->SetupAttachment(GetArrowComponent());
+
+	FR_InteractionComponent = CreateDefaultSubobject<UFR_InteractionComponent>(TEXT("InteractionComponent"));
 
 
 	// Персонаж не должен автоматически копировать поворот контроллера.
@@ -72,6 +77,7 @@ void AFR_CharacterBase::MovementStateCrouch(bool bIsCrounch)
 	SetMovementState(NewState);
 }
 
+
 void AFR_CharacterBase::SetMovementState(EFR_MovementState NewState)
 {
 	if (CurrentMovementState == NewState) return;
@@ -118,4 +124,6 @@ void AFR_CharacterBase::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
 }
+
+
 

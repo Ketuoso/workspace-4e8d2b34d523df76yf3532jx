@@ -7,6 +7,9 @@
 #include "EnhancedInputComponent.h"
 #include "Core/Character/FR_CharacterBase.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "Core/Components/FR_InteractionComponent.h"
+#include "Core/UI/HUD/FR_HUD.h"
+#include "Core/Interface/FR_Interactable.h"
 
 void AFR_PlayerController::BeginPlay()
 {
@@ -20,14 +23,15 @@ void AFR_PlayerController::BeginPlay()
 	if (!World) return;
 	AFR_GameState* FR_GameState = GetWorld()->GetGameState<AFR_GameState>();
 	if (!FR_GameState) return;
+	OwnerCharacter = Cast<AFR_CharacterBase>(GetPawn());
+	if (!OwnerCharacter) return;
 
 	FR_GameState->MatchPhaseChangedDelegate.AddUniqueDynamic(this, &AFR_PlayerController::HandleMatchPhaseChanged);
+	OwnerCharacter->GetInteractionComponent()->OnInteractionTargetChangedDelegate.AddUniqueDynamic(this, &AFR_PlayerController::HandleInteractionTargetChanged);
+
 
 	const EFR_MatchPhase CurrentPhase = FR_GameState->GetMatchPhase();
 	HandleMatchPhaseChanged(CurrentPhase, CurrentPhase);
-
-	
-
 
 	GetWorldTimerManager().SetTimer(TimerLookAtRotation, this, &AFR_PlayerController::LookAtRotation, 0.025, true);
 }
@@ -43,6 +47,11 @@ void AFR_PlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		{
 			FRGameState->MatchPhaseChangedDelegate.RemoveDynamic(this,&AFR_PlayerController::HandleMatchPhaseChanged);
 		}
+
+	}
+	if (OwnerCharacter)
+	{
+		OwnerCharacter->GetInteractionComponent()->OnInteractionTargetChangedDelegate.RemoveDynamic(this, &AFR_PlayerController::HandleInteractionTargetChanged);
 	}
 
 	GetWorldTimerManager().ClearTimer(TimerLookAtRotation);
@@ -84,11 +93,36 @@ void AFR_PlayerController::HandleMatchPhaseChanged(EFR_MatchPhase NewPhase, EFR_
 
 		SetIgnoreMoveInput(true);
 		SetIgnoreLookInput(true);
+
+		OwnerCharacter->GetInteractionComponent()->StopInteractionUpdates();
 		break;
 	}
 	default:
 		break;
 	}
+}
+
+void AFR_PlayerController::HandleInteractionTargetChanged(AActor* NewTarget)
+{
+	AFR_HUD* FR_HUD = Cast<AFR_HUD>(GetHUD());
+	if (!FR_HUD) return;
+	if (NewTarget)
+	{
+		if (IFR_Interactable::Execute_CanInteract(NewTarget, OwnerCharacter))
+		{
+			FText PromptText = IFR_Interactable::Execute_GetInteractionText(NewTarget, OwnerCharacter);
+			FR_HUD->ShowInteractionPrompt(PromptText);
+		}
+		else
+		{
+			FR_HUD->HideInteractionPrompt();
+		}
+	}
+	else
+	{
+		FR_HUD->HideInteractionPrompt();
+	}
+
 }
 
 bool AFR_PlayerController::IsGameplayInputAllowed() const
@@ -117,8 +151,8 @@ void AFR_PlayerController::InitializeInputMappings()
 void AFR_PlayerController::Move(const FInputActionValue& InputActionValue)
 {
 	if (!IsGameplayInputAllowed()) return;
-	AFR_CharacterBase* OwnerCharacter = Cast< AFR_CharacterBase>(GetPawn());
 	if (!OwnerCharacter) return;
+
 	const FVector2D InputAxis = InputActionValue.Get<FVector2D>();
 	OwnerCharacter->Move(InputAxis.X, InputAxis.Y);
 }
@@ -126,12 +160,14 @@ void AFR_PlayerController::Move(const FInputActionValue& InputActionValue)
 void AFR_PlayerController::StartedInteract()
 {
 	if (!IsGameplayInputAllowed()) return;
+	if (!OwnerCharacter) return;
+
+	OwnerCharacter->GetInteractionComponent()->TryInteract();
 }
 
 void AFR_PlayerController::StartedSprint()
 {
 	if (!IsGameplayInputAllowed()) return;
-	AFR_CharacterBase* OwnerCharacter = Cast< AFR_CharacterBase>(GetPawn());
 	if (!OwnerCharacter) return;
 
 	OwnerCharacter->Sprint(true);
@@ -139,7 +175,6 @@ void AFR_PlayerController::StartedSprint()
 
 void AFR_PlayerController::CompletedSprint()
 {
-	AFR_CharacterBase* OwnerCharacter = Cast< AFR_CharacterBase>(GetPawn());
 	if (!OwnerCharacter) return;
 
 	OwnerCharacter->Sprint(false);
@@ -148,7 +183,6 @@ void AFR_PlayerController::CompletedSprint()
 void AFR_PlayerController::StartedCrouch()
 {
 	if (!IsGameplayInputAllowed()) return;
-	AFR_CharacterBase* OwnerCharacter = Cast< AFR_CharacterBase>(GetPawn());
 	if (!OwnerCharacter) return;
 
 	OwnerCharacter->MovementStateCrouch(true);
@@ -156,7 +190,6 @@ void AFR_PlayerController::StartedCrouch()
 
 void AFR_PlayerController::CompletedCrouch()
 {
-	AFR_CharacterBase* OwnerCharacter = Cast< AFR_CharacterBase>(GetPawn());
 	if (!OwnerCharacter) return;
 
 	OwnerCharacter->MovementStateCrouch(false);
@@ -165,7 +198,6 @@ void AFR_PlayerController::CompletedCrouch()
 void AFR_PlayerController::LookAtRotation()
 {
 	if (!IsGameplayInputAllowed()) return;
-	AFR_CharacterBase* OwnerCharacter = Cast< AFR_CharacterBase>(GetPawn());
 	if (!OwnerCharacter) return;
 
 	FVector RayOrigin;

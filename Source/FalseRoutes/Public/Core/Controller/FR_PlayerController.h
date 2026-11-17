@@ -9,6 +9,7 @@
 
 class UInputAction;
 class UInputMappingContext;
+class AFR_CharacterBase;
 
 struct FInputActionValue;
 
@@ -40,6 +41,7 @@ protected:
 private:
 
 	UFUNCTION() void HandleMatchPhaseChanged(EFR_MatchPhase NewPhase, EFR_MatchPhase OldPhase);
+	UFUNCTION() void HandleInteractionTargetChanged(AActor* NewTarget);
 
 	bool IsGameplayInputAllowed() const;
 
@@ -61,7 +63,7 @@ private:
 	void LookAtRotation();
 
 
-
+	AFR_CharacterBase* OwnerCharacter = nullptr;
 	FTimerHandle TimerLookAtRotation;
 
 };

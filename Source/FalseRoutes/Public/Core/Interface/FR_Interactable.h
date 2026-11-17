@@ -6,7 +6,8 @@
 #include "UObject/Interface.h"
 #include "FR_Interactable.generated.h"
 
-// This class does not need to be modified.
+class AFR_CharacterBase;
+
 UINTERFACE(MinimalAPI)
 class UFR_Interactable : public UInterface
 {
@@ -20,6 +21,11 @@ class FALSEROUTES_API IFR_Interactable
 {
 	GENERATED_BODY()
 
-	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
+
 public:
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable) void Interact(AFR_CharacterBase* Interactor);
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable) bool CanInteract(AFR_CharacterBase* Interactor);
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable) FText GetInteractionText(AFR_CharacterBase* Interactor);
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable) void SetInteractionHighlighted(AFR_CharacterBase* Interactor, bool bIsHighlighted);
 };

@@ -17,6 +17,7 @@ enum class EFR_MovementState
 class USpringArmComponent;
 class UCameraComponent;
 class USphereComponent;
+class UFR_InteractionComponent;
 
 UCLASS()
 class FALSEROUTES_API AFR_CharacterBase : public ACharacter
@@ -34,6 +35,9 @@ public:
 
 	void SetMovementState(EFR_MovementState NewState);
 
+	UFR_InteractionComponent* GetInteractionComponent() { return FR_InteractionComponent; }
+	USphereComponent* GetInteractionSphere() { return InteractionSphere; }
+
 protected:
 
 	virtual void BeginPlay() override;
@@ -46,9 +50,12 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera") TObjectPtr<UCameraComponent> Camera;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Interaction") TObjectPtr<USphereComponent> InteractionSphere;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Interaction") TObjectPtr<UFR_InteractionComponent> FR_InteractionComponent;
 
 
 private:
+
+
 
 	UPROPERTY(EditAnywhere, Category = "FR_Movement") EFR_MovementState CurrentMovementState = EFR_MovementState::Walking;
 	UPROPERTY(EditAnywhere, Category = "FR_Movement") float WalkSpeed = 200.f;
