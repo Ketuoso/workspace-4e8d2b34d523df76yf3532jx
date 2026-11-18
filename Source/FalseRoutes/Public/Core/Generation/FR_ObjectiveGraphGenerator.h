@@ -20,6 +20,8 @@ class FALSEROUTES_API UFR_ObjectiveGraphGenerator : public UObject
 {
 	GENERATED_BODY()
 
+public:
+
 	static bool GenerateGraph(const UFR_ObjectiveGraphAsset* GraphAsset, const FFR_ObjectiveGraphContext& Context, int32 Seed, FFR_GeneratedObjectiveGraph& OutGraph, FText& OutError);
 
 	

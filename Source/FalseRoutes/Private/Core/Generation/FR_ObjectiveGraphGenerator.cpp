@@ -138,11 +138,11 @@ namespace FR_ObjectiveGraphGeneratorInternal
 
             TotalWeight += Variant.Weight;
             LastValidVariant = &Variant;
+        }
 
-            if (TotalWeight <= 0.0f || LastValidVariant == nullptr)
-            {
-                return Fail(OutError, FString::Printf(TEXT("Node %s has no variants with a positive weight."), *NodeTemplate.NodeId.ToString()));
-            }
+        if (TotalWeight <= 0.0f || LastValidVariant == nullptr)
+        {
+            return Fail(OutError, FString::Printf(TEXT("Node %s has no variants with a positive weight."), *NodeTemplate.NodeId.ToString()));
         }
 
         const float RandomValue = Random.FRandRange(0.0f, TotalWeight);
@@ -333,7 +333,6 @@ namespace FR_ObjectiveGraphGeneratorInternal
                 return Fail(OutError, FString::Printf(TEXT("Generated node is not reachable from root: %s"), *Node.Definition.ObjectiveId.ToString()));
             }
             Node.Depth = *Depth;
-            return true;
         }
         return true;
     }
@@ -341,7 +340,7 @@ namespace FR_ObjectiveGraphGeneratorInternal
     bool HasDependencyCycle(FName ObjectiveId, const TMap<FName, const FFR_ObjectiveDefinition*>& Definitions, TSet<FName>& Visiting, TSet<FName>& Visited)
     {
         if (Visited.Contains(ObjectiveId)) return false;
-        if (Visiting.Contains(ObjectiveId)) return false;
+        if (Visiting.Contains(ObjectiveId)) return true;
 
         const FFR_ObjectiveDefinition* Definition = Definitions.FindRef(ObjectiveId);
         if (Definition == nullptr) return false;
@@ -380,7 +379,7 @@ namespace FR_ObjectiveGraphGeneratorInternal
             }
             if (Node.Depth <0 || Node.Depth > Asset.MaxDepth)
             {
-                return Fail(OutError, FString::Printf(TEXT("Generated node is not reachable from root: %s"), *Definition.ObjectiveId.ToString()));
+                return Fail(OutError, FString::Printf(TEXT("Invalid depth for objective %s."), *Definition.ObjectiveId.ToString()));
             }
             if (Definition.RequiredAmount < 1)
             {

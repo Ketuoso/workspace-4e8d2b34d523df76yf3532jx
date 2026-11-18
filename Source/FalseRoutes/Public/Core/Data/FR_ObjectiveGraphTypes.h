@@ -41,7 +41,7 @@ struct FFR_GeneratedObjectiveNode
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) FName SourceNodeId;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) FFR_ObjectiveDefinition Definition;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) int32 Depth = 0.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) int32 Depth = 0;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) bool bInitiallySatisfied = false;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) FName DeviceSlot;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) FName SpawnGroup;
