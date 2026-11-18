@@ -7,6 +7,7 @@
 #include "Core/Interface/FR_Interactable.h"
 #include "FR_Generator.generated.h"
 
+class UFR_ObjectiveSourceComponent;
 
 UENUM()
 enum class EFR_GeneratorState : uint8
@@ -36,12 +37,14 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Repair", meta = (ClampMin = "0.0")) float RepairDuration = 1.f;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Repair") EFR_GeneratorState GeneratorState = EFR_GeneratorState::Ready;
-
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Objectives") TObjectPtr<UFR_ObjectiveSourceComponent> ObjectiveSource;
 private:
 
 	void StartRepair(AFR_CharacterBase* Interactor);
 	void CompletedRepair();
 	void CanceledRepair();
+
+	bool ResolveObjectiveId(FName SourceNodeId,FName& OutObjectiveId) const;
 
 	FTimerHandle RepairTimerHandle;
 	TWeakObjectPtr<AFR_CharacterBase> RepairInstigator;

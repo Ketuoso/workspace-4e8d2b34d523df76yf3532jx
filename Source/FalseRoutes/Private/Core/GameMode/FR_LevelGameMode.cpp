@@ -529,3 +529,8 @@ void AFR_LevelGameMode::RequestLose()
 		UE_LOG(LogTemp, Warning, TEXT("Переход в фазу Lost не удалось"));
 	}
 }
+
+bool AFR_LevelGameMode::IsProceduralObjectiveGraphActive() const
+{
+	return bUseProceduralObjectiveGraph &&!ActiveObjectiveGraph.bUsedFallback && !ActiveObjectiveGraph.Nodes.IsEmpty();
+}

@@ -7,23 +7,27 @@
 #include "Core/GameMode/FR_LevelGameMode.h"
 #include "Core/Components/FR_ObjectiveComponent.h"
 #include "Core/Data/FR_ObjectiveIds.h"
-
+#include "Core/Components/FR_ObjectiveSourceComponent.h"
 
 AFR_Generator::AFR_Generator()
 {
 
 	PrimaryActorTick.bCanEverTick = false;
-
+	ObjectiveSource = CreateDefaultSubobject<UFR_ObjectiveSourceComponent>(TEXT("ObjectiveSource"));
 }
 
 void AFR_Generator::Interact_Implementation(AFR_CharacterBase* Interactor)
 {
-	// В будущем тут можно добавить проверку наличия ключей и выводить сообщение если их нет.
 	if (!CanInteract_Implementation(Interactor)) return;
 	UWorld* World = GetWorld();
 	if (!World) return;
 	AFR_LevelGameMode* GameMode = World->GetAuthGameMode<AFR_LevelGameMode>();
 	if (!GameMode) return;
+
+	FName RepairObjectiveId;
+	FName StartObjectiveId;
+
+	if (!ResolveObjectiveId(FR_ObjectiveIds::GeneratorRepair,RepairObjectiveId) ||!ResolveObjectiveId(FR_ObjectiveIds::GeneratorStart,StartObjectiveId)) return;
 
 	GameMode->RevealObjective(FR_ObjectiveIds::GeneratorRepair);
 	GameMode->RevealObjective(FR_ObjectiveIds::GeneratorStart);
@@ -45,7 +49,12 @@ bool AFR_Generator::CanInteract_Implementation(AFR_CharacterBase* Interactor)
 
 	UFR_ObjectiveComponent* Objectives = FR_GameState->GetObjectiveComponent();
 
-	return Objectives && !Objectives->IsObjectiveCompleted(FR_ObjectiveIds::GeneratorRepair);
+	FName RepairObjectiveId;
+	FName StartObjectiveId;
+
+	if (!ResolveObjectiveId(FR_ObjectiveIds::GeneratorRepair, RepairObjectiveId) || !ResolveObjectiveId(FR_ObjectiveIds::GeneratorStart, StartObjectiveId)) return false;
+
+	return !Objectives->IsObjectiveCompleted(RepairObjectiveId);
 }
 
 
@@ -97,8 +106,17 @@ void AFR_Generator::CompletedRepair()
 		return;
 	}
 	
+	FName RepairObjectiveId;
+	FName StartObjectiveId;
+
+	if (!ResolveObjectiveId(FR_ObjectiveIds::GeneratorRepair,RepairObjectiveId) ||!ResolveObjectiveId(FR_ObjectiveIds::GeneratorStart,StartObjectiveId))
+	{
+		CanceledRepair();
+		return;
+	}
+
 	AFR_CharacterBase* SourceActor = RepairInstigator.Get();
-	const bool bAdvanced = GameMode->TryAdvanceObjective(FR_ObjectiveIds::GeneratorRepair, SourceActor);
+	const bool bAdvanced = GameMode->TryAdvanceObjective(RepairObjectiveId, SourceActor);
 	if (!bAdvanced)
 	{
 		GeneratorState = EFR_GeneratorState::Ready;
@@ -108,11 +126,11 @@ void AFR_Generator::CompletedRepair()
 	GeneratorState = EFR_GeneratorState::Ready;
 	// Здесь можно запускать эффекты успешного ремонта.
 
-	if (Objectives->IsObjectiveCompleted(FR_ObjectiveIds::GeneratorRepair))
+	if (Objectives->IsObjectiveCompleted(RepairObjectiveId))
 	{
 		GeneratorState = EFR_GeneratorState::Completed;
 
-		GameMode->TryCompletedObjective(FR_ObjectiveIds::GeneratorStart, SourceActor);
+		GameMode->TryCompletedObjective(RepairObjectiveId, SourceActor);
 	}
 	RepairInstigator = nullptr;
 }
@@ -125,6 +143,29 @@ void AFR_Generator::CanceledRepair()
 		GeneratorState = EFR_GeneratorState::Ready;
 	}
 	RepairInstigator = nullptr;
+}
+
+bool AFR_Generator::ResolveObjectiveId(FName SourceNodeId, FName& OutObjectiveId) const
+{
+	OutObjectiveId = NAME_None;
+
+	if (SourceNodeId.IsNone()) return false;
+
+	UWorld* World = GetWorld();
+	if (!World) return false;
+
+	const AFR_LevelGameMode* GameMode = World->GetAuthGameMode<AFR_LevelGameMode>();
+
+	if (!GameMode) return false;
+	if (GameMode->IsProceduralObjectiveGraphActive())
+	{
+		// В процедурном режиме отсутствие привязки запрещает действие.
+		return ObjectiveSource && ObjectiveSource->FindObjectiveId(SourceNodeId,OutObjectiveId);
+	}
+
+	// В фиксированном тестовом графе NodeId совпадает с ObjectiveId.
+	OutObjectiveId = SourceNodeId;
+	return true;
 }
 
 

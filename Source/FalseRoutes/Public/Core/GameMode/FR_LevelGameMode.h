@@ -35,6 +35,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "MatchPhase") void RequestWin();
 	UFUNCTION(BlueprintCallable, Category = "MatchPhase") void RequestLose();
 
+	bool IsProceduralObjectiveGraphActive() const;
+
 protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Objectives") FName EscapeAvailableObjectiveId = FName(TEXT("Generator.Start"));
