@@ -41,10 +41,10 @@ protected:
 
 private:
 
-	void StartRepair();
+	void StartRepair(AFR_CharacterBase* Interactor);
 	void CompletedRepair();
 	void CanceledRepair();
 
 	FTimerHandle RepairTimerHandle;
-
+	TWeakObjectPtr<AFR_CharacterBase> RepairInstigator;
 };

@@ -2,6 +2,7 @@
 
 
 #include "Core/GameState/FR_GameState.h"
+#include "Core/Components/FR_ObjectiveComponent.h"
 
 AFR_GameState::AFR_GameState()
 {

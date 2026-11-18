@@ -5,6 +5,8 @@
 #include "Core/GameState/FR_GameState.h"
 #include "Core/Character/FR_CharacterBase.h"
 #include "Core/GameMode/FR_LevelGameMode.h"
+#include "Core/Components/FR_ObjectiveComponent.h"
+#include "Core/Data/FR_ObjectiveIds.h"
 
 
 AFR_Generator::AFR_Generator()
@@ -17,28 +19,33 @@ AFR_Generator::AFR_Generator()
 void AFR_Generator::Interact_Implementation(AFR_CharacterBase* Interactor)
 {
 	// В будущем тут можно добавить проверку наличия ключей и выводить сообщение если их нет.
-	if (!Interactor) return;
-	if (GeneratorState == EFR_GeneratorState::Ready)
-	{
-		StartRepair();
-	}
-	else
-	{
-		CanceledRepair();
-	}
+	if (!CanInteract_Implementation(Interactor)) return;
+	UWorld* World = GetWorld();
+	if (!World) return;
+	AFR_LevelGameMode* GameMode = World->GetAuthGameMode<AFR_LevelGameMode>();
+	if (!GameMode) return;
+
+	GameMode->RevealObjective(FR_ObjectiveIds::GeneratorRepair);
+	GameMode->RevealObjective(FR_ObjectiveIds::GeneratorStart);
+
+	StartRepair(Interactor);
 
 }
 
 bool AFR_Generator::CanInteract_Implementation(AFR_CharacterBase* Interactor)
 {
-	//Проверка можно ли взаимодействовать с Актром
-	if (GeneratorState == EFR_GeneratorState::Completed) return false;
+	if (!IsValid(Interactor) || !Interactor->IsLocallyControlled()) return false;
+	if (GeneratorState != EFR_GeneratorState::Ready) return false;
+
+	UWorld* World = GetWorld();
+	if (!World) return false;
+
 	AFR_GameState* FR_GameState = GetWorld()->GetGameState<AFR_GameState>();
-	if (!FR_GameState) return false;
-	//Дополнительная проверка у Актора что матч находится в стадии Playing
-	if (FR_GameState->GetMatchPhase() != EFR_MatchPhase::Playing) return false;
-	if (!Interactor->IsLocallyControlled()) return false;
-	return true;
+	if (!FR_GameState || FR_GameState->GetMatchPhase() != EFR_MatchPhase::Playing) return false;
+
+	UFR_ObjectiveComponent* Objectives = FR_GameState->GetObjectiveComponent();
+
+	return Objectives && !Objectives->IsObjectiveCompleted(FR_ObjectiveIds::GeneratorRepair);
 }
 
 
@@ -51,9 +58,10 @@ void AFR_Generator::BeginPlay()
 	
 }
 
-void AFR_Generator::StartRepair()
+void AFR_Generator::StartRepair(AFR_CharacterBase* Interactor)
 {
 	GeneratorState = EFR_GeneratorState::Repairing;
+	RepairInstigator = Interactor;
 	if (RepairDuration > 0.f)
 	{
 		GetWorldTimerManager().SetTimer(RepairTimerHandle, this, &AFR_Generator::CompletedRepair, RepairDuration, false);
@@ -67,24 +75,37 @@ void AFR_Generator::StartRepair()
 void AFR_Generator::CompletedRepair()
 {
 	GetWorldTimerManager().ClearTimer(RepairTimerHandle);
-	AFR_GameState* FR_GameState = GetWorld()->GetGameState<AFR_GameState>();
-	if (!FR_GameState) return;
-	//Дополнительная проверка у Актора что матч находится в стадии Playing
-	if (FR_GameState->GetMatchPhase() != EFR_MatchPhase::Playing) return;
-	if (GeneratorState != EFR_GeneratorState::Repairing) return;
-	if (RepairCount >= RequiredRepairs) return;
 
-	RepairCount = FMath::Min(RepairCount + 1, RequiredRepairs);
-	if (RepairCount >= RequiredRepairs)
-	{
-		GeneratorState = EFR_GeneratorState::Completed;
-		AFR_LevelGameMode* FR_LevelGameMode = GetWorld()->GetAuthGameMode<AFR_LevelGameMode>();
-		FR_LevelGameMode->RequestEscapeAvailable();
-	}
-	else
+	if (GeneratorState != EFR_GeneratorState::Repairing) return;
+
+	UWorld* World = GetWorld();
+	if (!World) return;
+
+	AFR_LevelGameMode* GameMode = World->GetAuthGameMode<AFR_LevelGameMode>();
+	AFR_GameState* FR_GameState = GetWorld()->GetGameState<AFR_GameState>();
+	if (!FR_GameState || !GameMode) return;
+
+	UFR_ObjectiveComponent* Objectives = FR_GameState->GetObjectiveComponent();
+	if (!Objectives) return;
+	
+	AFR_CharacterBase* SourceActor = RepairInstigator.Get();
+	const bool bAdvanced = GameMode->TryAdvanceObjective(FR_ObjectiveIds::GeneratorRepair, SourceActor);
+	if (!bAdvanced)
 	{
 		GeneratorState = EFR_GeneratorState::Ready;
+		RepairInstigator = nullptr;
+		return;
 	}
+	GeneratorState = EFR_GeneratorState::Ready;
+	// Здесь можно запускать эффекты успешного ремонта.
+
+	if (Objectives->IsObjectiveCompleted(FR_ObjectiveIds::GeneratorRepair))
+	{
+		GeneratorState = EFR_GeneratorState::Completed;
+
+		GameMode->TryCompletedObjective(FR_ObjectiveIds::GeneratorStart, SourceActor);
+	}
+	RepairInstigator = nullptr;
 }
 
 void AFR_Generator::CanceledRepair()
