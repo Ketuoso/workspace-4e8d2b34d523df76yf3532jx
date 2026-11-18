@@ -75,7 +75,7 @@ void UFR_InteractionComponent::StartInteractionUpdates()
 	UWorld* World = GetWorld();
 	if (World)
 	{
-		World->GetTimerManager().SetTimer(RefreshInteractionTimer, this, &UFR_InteractionComponent::RefreshInteraction, 0.025f, true);
+		World->GetTimerManager().SetTimer(RefreshInteractionTimer, this, &UFR_InteractionComponent::RefreshInteraction, InteractionRefreshInterval, true);
 	}
 }
 
@@ -111,12 +111,16 @@ void UFR_InteractionComponent::FindBestInteractable()
 	{
 		if (Actor->Implements<UFR_Interactable>())
 		{
-			float BestDistanceSquared = OwnerCharacter->GetSquaredDistanceTo(Actor);
-			if (BestDistanceSquared < BestDistance)
+			if (IFR_Interactable::Execute_CanInteract(Actor, OwnerCharacter))
 			{
-				BestActor = Actor;
-				BestDistance = BestDistanceSquared;
+				float BestDistanceSquared = OwnerCharacter->GetSquaredDistanceTo(Actor);
+				if (BestDistanceSquared < BestDistance)
+				{
+					BestActor = Actor;
+					BestDistance = BestDistanceSquared;
+				}
 			}
+			
 		}
 	}
 	SetCurrentInteractableActor(BestActor);
@@ -142,6 +146,6 @@ void UFR_InteractionComponent::ClearInteractionTarget()
 			IFR_Interactable::Execute_SetInteractionHighlighted(CurrentInteractableActor, OwnerCharacter, false);
 		}
 	}
-	CurrentInteractableActor = nullptr;
+	SetCurrentInteractableActor(nullptr);
 }
 
