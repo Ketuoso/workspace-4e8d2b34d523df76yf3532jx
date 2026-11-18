@@ -192,9 +192,9 @@ namespace FR_ObjectiveGraphGeneratorInternal
         {
             return Fail(OutError, TEXT("MaxGeneratedObjectives exceeded."));
         }
-        if (!NodeTemplate->DeviceSlot.IsNone() && !State.Context->AvailableDeviceSlots.Contains(NodeTemplate->DeviceSlot))
+        if (!NodeTemplate->SourceSlot.IsNone() && !State.Context->AvailableSourceSlots.Contains(NodeTemplate->SourceSlot))
         {
-            return Fail(OutError, FString::Printf(TEXT("DeviceSlot %s is not available for node %s."), *NodeTemplate->DeviceSlot.ToString(), *NodeId.ToString()));
+            return Fail(OutError, FString::Printf(TEXT("SourceSlot %s is not available for node %s."), *NodeTemplate->SourceSlot.ToString(), *NodeId.ToString()));
         }
         if (!NodeTemplate->SpawnGroup.IsNone())
         {
@@ -243,7 +243,7 @@ namespace FR_ObjectiveGraphGeneratorInternal
         NewNode.SourceNodeId = NodeTemplate->NodeId;
         NewNode.Depth = Depth;
         NewNode.bInitiallySatisfied = false;
-        NewNode.DeviceSlot = NodeTemplate->DeviceSlot;
+        NewNode.SourceSlot = NodeTemplate->SourceSlot;
         NewNode.SpawnGroup = NodeTemplate->SpawnGroup;
 
         NewNode.Definition.ObjectiveId = NodeTemplate->ObjectiveId;
@@ -385,9 +385,9 @@ namespace FR_ObjectiveGraphGeneratorInternal
             {
                 return Fail(OutError, TEXT("Generated objective has RequiredAmount less than 1."));
             }
-            if (!Node.DeviceSlot.IsNone() && !Context.AvailableDeviceSlots.Contains(Node.DeviceSlot))
+            if (!Node.SourceSlot.IsNone() && !Context.AvailableSourceSlots.Contains(Node.SourceSlot))
             {
-                return Fail(OutError,TEXT("Generated graph contains an unavailable DeviceSlot."));
+                return Fail(OutError,TEXT("Generated graph contains an unavailable SourceSlot."));
             }
             if (!Node.SpawnGroup.IsNone())
             {

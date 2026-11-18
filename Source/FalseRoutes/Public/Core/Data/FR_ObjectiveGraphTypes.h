@@ -29,7 +29,7 @@ struct FFR_ObjectiveNodeTemplate
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) bool bMainObjective = false;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) bool bVisibleFromStart = false;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) bool bCanBeInitiallySatisfied = false;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) FName DeviceSlot;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) FName SourceSlot;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) FName SpawnGroup;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) TArray<FFR_ObjectiveRequirementVariant> RequirementVariants;
 };
@@ -43,7 +43,7 @@ struct FFR_GeneratedObjectiveNode
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) FFR_ObjectiveDefinition Definition;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) int32 Depth = 0;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) bool bInitiallySatisfied = false;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) FName DeviceSlot;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) FName SourceSlot;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) FName SpawnGroup;
 };
 
@@ -64,6 +64,6 @@ struct FFR_ObjectiveGraphContext
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) TSet<FName> AvailableDeviceSlots;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) TSet<FName> AvailableSourceSlots;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) TMap<FName, int32> AvailableSpawnGroups;
 };

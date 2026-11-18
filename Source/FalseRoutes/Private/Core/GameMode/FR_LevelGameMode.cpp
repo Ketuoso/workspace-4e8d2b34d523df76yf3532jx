@@ -240,10 +240,11 @@ void AFR_LevelGameMode::BuildObjectiveGraphContext(FFR_ObjectiveGraphContext& Ou
 
 	// Временный диагностический контекст.
 	// На следующих этапах он будет собираться из реальных акторов уровня.
-	OutContext.AvailableDeviceSlots.Add(FName(TEXT("Door.Main")));
-	OutContext.AvailableDeviceSlots.Add(FName(TEXT("ControlRoom.Main")));
-	OutContext.AvailableDeviceSlots.Add(FName(TEXT("ControlPanel.Main")));
-	OutContext.AvailableDeviceSlots.Add(FName(TEXT("Generator.Main")));
+	OutContext.AvailableSourceSlots.Add(FName(TEXT("Door.Main")));
+	OutContext.AvailableSourceSlots.Add(FName(TEXT("ControlRoom.Main")));
+	OutContext.AvailableSourceSlots.Add(FName(TEXT("ControlPanel.Main")));
+	OutContext.AvailableSourceSlots.Add(FName(TEXT("Generator.Main")));
+
 	OutContext.AvailableSpawnGroups.Add(FName(TEXT("Fuel.Warehouse")),1);
 	OutContext.AvailableSpawnGroups.Add(FName(TEXT("StartKey.Warehouse")),1);
 }
