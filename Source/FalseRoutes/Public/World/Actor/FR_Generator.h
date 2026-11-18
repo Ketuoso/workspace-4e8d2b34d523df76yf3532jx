@@ -34,8 +34,6 @@ protected:
 
 	virtual void BeginPlay() override;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Repair") int32 RepairCount = 0;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Repair", meta = (ClampMin = "1")) int32 RequiredRepairs = 3;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Repair", meta = (ClampMin = "0.0")) float RepairDuration = 0.f;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Repair") EFR_GeneratorState GeneratorState = EFR_GeneratorState::Ready;
 
