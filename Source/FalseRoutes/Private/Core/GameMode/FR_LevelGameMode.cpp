@@ -6,6 +6,9 @@
 #include "Core/Controller/FR_PlayerController.h"
 #include "Core/Components/FR_ObjectiveComponent.h"
 #include "Core/Data/FR_ObjectiveIds.h"
+#include "Core/Data/FR_ObjectiveGraphAsset.h"
+#include "Core/Data/FR_ObjectiveGraphTypes.h"
+#include "Core/Generation/FR_ObjectiveGraphGenerator.h"
 
 AFR_LevelGameMode::AFR_LevelGameMode()
 {
@@ -24,7 +27,29 @@ void AFR_LevelGameMode::BeginPlay()
 	if (!Objectives) return;
 
 	Objectives->OnObjectiveChangedDelegate.AddUniqueDynamic(this, &AFR_LevelGameMode::HandleObjectiveChanged);
+	
+	ActiveObjectiveGraph = FFR_GeneratedObjectiveGraph();
+	ActiveObjectiveGraph.Seed = ObjectiveSeed;
+
+	if (bUseProceduralObjectiveGraph)
+	{
+		if (InitializeProceduralObjectives()) return;
+		UE_LOG(LogTemp,Error,TEXT("Procedural objectives initialization failed. Using fixed fallback objectives."));
+		ActiveObjectiveGraph.bUsedFallback = true;
+	}
+
+	// Фиксированный режим или резервный вариант после ошибки генерации.
 	RegisterTestObjectives();
+
+	ActiveObjectiveGraph.RootObjectiveId = FR_ObjectiveIds::EscapeWarehouse;
+	ActiveObjectiveGraph.EscapeAvailableObjectiveId = FR_ObjectiveIds::GeneratorStart;
+
+
+	// Старую диагностическую серию запускаем только в фиксированном режиме.
+	if (!bUseProceduralObjectiveGraph)
+	{
+		TestGenerateObjectiveGraph();
+	}
 }
 
 void AFR_LevelGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -59,15 +84,7 @@ bool AFR_LevelGameMode::TryAdvanceObjective(FName ObjectiveId, AActor* SourceAct
 	const bool bAdvanced = Objectives->TryAdvanceObjective(ObjectiveId);
 	if (bAdvanced)
 	{
-		UE_LOG(
-			LogTemp,
-			Log,
-			TEXT("Objective %s advanced by %s"),
-			*ObjectiveId.ToString(),
-			SourceActor
-			? *SourceActor->GetName()
-			: TEXT("Unknown")
-		);
+		UE_LOG(LogTemp,Log,TEXT("Objective %s advanced by %s"),*ObjectiveId.ToString(),SourceActor? *SourceActor->GetName(): TEXT("Unknown"));
 	}
 
 	return bAdvanced;
@@ -85,15 +102,7 @@ bool AFR_LevelGameMode::TryCompletedObjective(FName ObjectiveId, AActor* SourceA
 
 	if (bCompleted)
 	{
-		UE_LOG(
-			LogTemp,
-			Log,
-			TEXT("Objective %s completed by %s"),
-			*ObjectiveId.ToString(),
-			SourceActor
-			? *SourceActor->GetName()
-			: TEXT("Unknown")
-		);
+		UE_LOG(LogTemp,Log,TEXT("Objective %s completed by %s"),*ObjectiveId.ToString(),SourceActor? *SourceActor->GetName(): TEXT("Unknown"));
 	}
 
 	return bCompleted;
@@ -135,6 +144,147 @@ bool AFR_LevelGameMode::CanTransition(EFR_MatchPhase CurrentPhase, EFR_MatchPhas
 	return false;
 }
 
+bool AFR_LevelGameMode::InitializeProceduralObjectives()
+{
+	if (!ObjectiveGraphAsset)
+	{
+		UE_LOG(LogTemp,Error,TEXT("Cannot initialize procedural objectives: ObjectiveGraphAsset is null."));
+		return false;
+	}
+
+	FFR_ObjectiveGraphContext Context;
+	BuildObjectiveGraphContext(Context);
+
+	FFR_GeneratedObjectiveGraph GeneratedGraph;
+	FText GenerationError;
+
+	const bool bGenerated = UFR_ObjectiveGraphGenerator::GenerateGraph(ObjectiveGraphAsset.Get(),Context,ObjectiveSeed,GeneratedGraph,GenerationError);
+
+	if (!bGenerated)
+	{
+		UE_LOG(LogTemp,Error,TEXT("Objective graph generation failed: %s"),*GenerationError.ToString());
+		return false;
+	}
+
+	if (!ApplyGeneratedObjectiveGraph(GeneratedGraph))
+	{
+		UE_LOG(LogTemp,Error,TEXT("Generated objective graph could not be registered."));
+		return false;
+	}
+
+	ActiveObjectiveGraph = MoveTemp(GeneratedGraph);
+	EscapeAvailableObjectiveId =ActiveObjectiveGraph.EscapeAvailableObjectiveId;
+
+	UE_LOG(LogTemp,Display,TEXT("Procedural objectives initialized. EscapeAvailableObjectiveId=%s"),*EscapeAvailableObjectiveId.ToString());
+
+	LogGeneratedObjectiveGraph(ActiveObjectiveGraph);
+
+	return true;
+}
+
+bool AFR_LevelGameMode::ApplyGeneratedObjectiveGraph(const FFR_GeneratedObjectiveGraph& Graph)
+{
+	AFR_GameState* FRGameState = GetGameState<AFR_GameState>();
+	if (!FRGameState) return false;
+
+	UFR_ObjectiveComponent* Objectives =FRGameState->GetObjectiveComponent();
+
+	if (!Objectives || Graph.Nodes.IsEmpty()) return false;
+
+	// Метод вызывается только для нового ObjectiveComponent в BeginPlay.
+	for (const FFR_GeneratedObjectiveNode& Node : Graph.Nodes)
+	{
+		if (!Objectives->RegisterObjective(Node.Definition))
+		{
+			UE_LOG(LogTemp,Error,TEXT("Failed to register generated objective: %s"),*Node.Definition.ObjectiveId.ToString());
+			return false;
+		}
+	}
+
+	UE_LOG(LogTemp,Display,TEXT("Registered %d procedural objectives."),Graph.Nodes.Num());
+	return true;
+}
+
+void AFR_LevelGameMode::TestGenerateObjectiveGraph()
+{
+	if (!ObjectiveGraphAsset)
+	{
+		UE_LOG(LogTemp,Warning,TEXT("ObjectiveGraphAsset is not assigned. Diagnostic generation skipped."));
+		return;
+	}
+	FFR_ObjectiveGraphContext Context;
+	BuildObjectiveGraphContext(Context);
+
+	for (int32 SeedIndex = 0;SeedIndex < DiagnosticSeedCount; ++SeedIndex)
+	{
+		const int32 CurrentSeed = ObjectiveSeed + SeedIndex;
+
+		FFR_GeneratedObjectiveGraph GeneratedGraph;
+		FText GenerationError;
+
+		const bool bGenerated =UFR_ObjectiveGraphGenerator::GenerateGraph(ObjectiveGraphAsset.Get(),Context,CurrentSeed,GeneratedGraph,GenerationError);
+
+		if (!bGenerated)
+		{
+			UE_LOG(LogTemp,Error,TEXT("Objective graph generation failed. Seed=%d. Error=%s"),CurrentSeed,*GenerationError.ToString());
+			continue;
+		}
+
+		LogGeneratedObjectiveGraph(GeneratedGraph);
+	}
+}
+
+void AFR_LevelGameMode::BuildObjectiveGraphContext(FFR_ObjectiveGraphContext& OutContext) const
+{
+	OutContext = FFR_ObjectiveGraphContext();
+
+	// Временный диагностический контекст.
+	// На следующих этапах он будет собираться из реальных акторов уровня.
+	OutContext.AvailableDeviceSlots.Add(FName(TEXT("Door.Main")));
+	OutContext.AvailableDeviceSlots.Add(FName(TEXT("ControlRoom.Main")));
+	OutContext.AvailableDeviceSlots.Add(FName(TEXT("ControlPanel.Main")));
+	OutContext.AvailableDeviceSlots.Add(FName(TEXT("Generator.Main")));
+	OutContext.AvailableSpawnGroups.Add(FName(TEXT("Fuel.Warehouse")),1);
+	OutContext.AvailableSpawnGroups.Add(FName(TEXT("StartKey.Warehouse")),1);
+}
+
+void AFR_LevelGameMode::LogGeneratedObjectiveGraph(const FFR_GeneratedObjectiveGraph& Graph) const
+{
+	UE_LOG(LogTemp,Display,TEXT("ObjectiveGraph | Seed=%d | Nodes=%d | Root=%s | EscapeAvailable=%s"),
+		Graph.Seed,
+		Graph.Nodes.Num(),
+		*Graph.RootObjectiveId.ToString(),
+		*Graph.EscapeAvailableObjectiveId.ToString());
+
+	for (const FFR_GeneratedObjectiveNode& Node : Graph.Nodes)
+	{
+		FString RequiredObjectives;
+
+		for (const FName RequiredObjectiveId :
+		Node.Definition.RequiredObjectives)
+		{
+			if (!RequiredObjectives.IsEmpty())
+			{
+				RequiredObjectives += TEXT(", ");
+			}
+
+			RequiredObjectives += RequiredObjectiveId.ToString();
+		}
+
+		if (RequiredObjectives.IsEmpty())
+		{
+			RequiredObjectives = TEXT("None");
+		}
+
+		UE_LOG(LogTemp,Display,TEXT("Node=%s | Objective=%s | Depth=%d | Mode=%d | Requires=[%s]"),
+			*Node.SourceNodeId.ToString(),
+			*Node.Definition.ObjectiveId.ToString(),
+			Node.Depth,
+			static_cast<int32>(Node.Definition.RequirementMode),
+			*RequiredObjectives);
+	}
+}
+
 void AFR_LevelGameMode::RegisterTestObjectives()
 {
 	AFR_GameState* FRGameState =GetGameState<AFR_GameState>();
@@ -142,6 +292,8 @@ void AFR_LevelGameMode::RegisterTestObjectives()
 
 	UFR_ObjectiveComponent* Objectives = FRGameState->GetObjectiveComponent();
 	if (!Objectives) return;
+
+	EscapeAvailableObjectiveId = FR_ObjectiveIds::GeneratorStart;
 
 	// Главная задача.
 	FFR_ObjectiveDefinition EscapeDefinition;
