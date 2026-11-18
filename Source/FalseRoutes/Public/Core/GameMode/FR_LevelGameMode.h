@@ -9,7 +9,7 @@
 #include "FR_LevelGameMode.generated.h"
 
 class UFR_ObjectiveGraphAsset;
-
+class UFR_ObjectiveSourceComponent;
 
 /**
  * 
@@ -64,4 +64,9 @@ private:
 	void TestGenerateObjectiveGraph();
 	void BuildObjectiveGraphContext(FFR_ObjectiveGraphContext& OutContext) const;
 	void LogGeneratedObjectiveGraph(const FFR_GeneratedObjectiveGraph& Graph) const;
+
+	void CollectObjectiveSources(TArray<UFR_ObjectiveSourceComponent*>& OutSources) const;
+	bool BindGeneratedObjectivesToSources(const FFR_GeneratedObjectiveGraph& Graph);
+
+	void ClearObjectiveSourceBindings();
 };

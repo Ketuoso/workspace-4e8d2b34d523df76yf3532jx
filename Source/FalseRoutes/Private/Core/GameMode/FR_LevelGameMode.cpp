@@ -9,6 +9,8 @@
 #include "Core/Data/FR_ObjectiveGraphAsset.h"
 #include "Core/Data/FR_ObjectiveGraphTypes.h"
 #include "Core/Generation/FR_ObjectiveGraphGenerator.h"
+#include "Core/Components/FR_ObjectiveSourceComponent.h"
+#include "EngineUtils.h"
 
 AFR_LevelGameMode::AFR_LevelGameMode()
 {
@@ -39,6 +41,7 @@ void AFR_LevelGameMode::BeginPlay()
 	}
 
 	// Фиксированный режим или резервный вариант после ошибки генерации.
+	ClearObjectiveSourceBindings();
 	RegisterTestObjectives();
 
 	ActiveObjectiveGraph.RootObjectiveId = FR_ObjectiveIds::EscapeWarehouse;
@@ -166,6 +169,12 @@ bool AFR_LevelGameMode::InitializeProceduralObjectives()
 		return false;
 	}
 
+	if (!BindGeneratedObjectivesToSources(GeneratedGraph))
+	{
+		UE_LOG(LogTemp,Error,TEXT("Generated objectives could not be bound to level sources."));
+		return false;
+	}
+
 	if (!ApplyGeneratedObjectiveGraph(GeneratedGraph))
 	{
 		UE_LOG(LogTemp,Error,TEXT("Generated objective graph could not be registered."));
@@ -238,15 +247,23 @@ void AFR_LevelGameMode::BuildObjectiveGraphContext(FFR_ObjectiveGraphContext& Ou
 {
 	OutContext = FFR_ObjectiveGraphContext();
 
-	// Временный диагностический контекст.
-	// На следующих этапах он будет собираться из реальных акторов уровня.
-	OutContext.AvailableSourceSlots.Add(FName(TEXT("Door.Main")));
-	OutContext.AvailableSourceSlots.Add(FName(TEXT("ControlRoom.Main")));
-	OutContext.AvailableSourceSlots.Add(FName(TEXT("ControlPanel.Main")));
-	OutContext.AvailableSourceSlots.Add(FName(TEXT("Generator.Main")));
+	TArray<UFR_ObjectiveSourceComponent*> Sources;
+	CollectObjectiveSources(Sources);
 
+	for (const UFR_ObjectiveSourceComponent* Source : Sources)
+	{
+		if (!Source) continue;
+		const FName SourceSlot = Source->GetSourceSlot();
+
+		if (SourceSlot.IsNone()) continue;
+		OutContext.AvailableSourceSlots.Add(SourceSlot);
+	}
+
+	// Spawn-группы пока остаются диагностическими.
+	// Их автоматический сбор подключим вместе с предметами.
 	OutContext.AvailableSpawnGroups.Add(FName(TEXT("Fuel.Warehouse")),1);
 	OutContext.AvailableSpawnGroups.Add(FName(TEXT("StartKey.Warehouse")),1);
+	UE_LOG(LogTemp,Display,TEXT("Objective graph context: SourceSlots=%d | SpawnGroups=%d"),OutContext.AvailableSourceSlots.Num(),OutContext.AvailableSpawnGroups.Num());
 }
 
 void AFR_LevelGameMode::LogGeneratedObjectiveGraph(const FFR_GeneratedObjectiveGraph& Graph) const
@@ -283,6 +300,129 @@ void AFR_LevelGameMode::LogGeneratedObjectiveGraph(const FFR_GeneratedObjectiveG
 			Node.Depth,
 			static_cast<int32>(Node.Definition.RequirementMode),
 			*RequiredObjectives);
+	}
+}
+
+void AFR_LevelGameMode::CollectObjectiveSources(TArray<UFR_ObjectiveSourceComponent*>& OutSources) const
+{
+	OutSources.Reset();
+
+	UWorld* World = GetWorld();
+	if (!World) return;
+
+	for (TActorIterator<AActor> ActorIt(World); ActorIt; ++ActorIt)
+	{
+		AActor* Actor = *ActorIt;
+		if (!Actor) continue;
+
+		TArray<UFR_ObjectiveSourceComponent*> ActorSources;
+		Actor->GetComponents<UFR_ObjectiveSourceComponent>(ActorSources);
+
+		for (UFR_ObjectiveSourceComponent* Source : ActorSources)
+		{
+			if (!Source) continue;
+			OutSources.Add(Source);
+			UE_LOG(LogTemp,Verbose,TEXT("Objective source found: Actor=%s | SourceSlot=%s"),*Actor->GetName(),*Source->GetSourceSlot().ToString());
+		}
+	}
+}
+
+bool AFR_LevelGameMode::BindGeneratedObjectivesToSources(const FFR_GeneratedObjectiveGraph& Graph)
+{
+	TArray<UFR_ObjectiveSourceComponent*> Sources;
+	CollectObjectiveSources(Sources);
+
+	TMap<FName, TArray<UFR_ObjectiveSourceComponent*>> SourcesBySlot;
+
+	for (UFR_ObjectiveSourceComponent* Source : Sources)
+	{
+		if (!Source)
+		{
+			continue;
+		}
+
+		const FName SourceSlot = Source->GetSourceSlot();
+
+		if (SourceSlot.IsNone())
+		{
+			continue;
+		}
+
+		SourcesBySlot.FindOrAdd(SourceSlot).Add(Source);
+	}
+
+	// Сначала проверяем весь граф, не изменяя компоненты.
+	for (const FFR_GeneratedObjectiveNode& Node : Graph.Nodes)
+	{
+		if (Node.SourceSlot.IsNone())
+		{
+			// Задача не требует привязки к источнику.
+			continue;
+		}
+
+		if (!SourcesBySlot.Contains(Node.SourceSlot))
+		{
+			UE_LOG(
+				LogTemp,
+				Error,
+				TEXT("No objective source found. Node=%s | RequiredSourceSlot=%s"),
+				*Node.SourceNodeId.ToString(),
+				*Node.SourceSlot.ToString()
+			);
+
+			return false;
+		}
+	}
+
+	// Только после полной проверки удаляем старые привязки.
+	for (UFR_ObjectiveSourceComponent* Source : Sources)
+	{
+		if (Source)
+		{
+			Source->ClearObjectiveBindings();
+		}
+	}
+
+	// Назначаем задачи всем источникам с соответствующим слотом.
+	for (const FFR_GeneratedObjectiveNode& Node : Graph.Nodes)
+	{
+		if (Node.SourceSlot.IsNone()) continue;
+
+		TArray<UFR_ObjectiveSourceComponent*>* MatchingSources = SourcesBySlot.Find(Node.SourceSlot);
+
+		if (!MatchingSources) continue;
+
+		for (UFR_ObjectiveSourceComponent* Source : *MatchingSources)
+		{
+			if (!Source) continue;
+			const bool bBound = Source->BindObjective(Node.SourceNodeId,Node.Definition.ObjectiveId);
+
+			if (!bBound)
+			{
+				UE_LOG(LogTemp,Error,TEXT("Failed to bind objective. Node=%s | Objective=%s | SourceSlot=%s"),
+					*Node.SourceNodeId.ToString(),*Node.Definition.ObjectiveId.ToString(),*Node.SourceSlot.ToString());
+				return false;
+			}
+
+			UE_LOG(LogTemp,Display,TEXT("Objective bound: Node=%s | Objective=%s | Actor=%s | SourceSlot=%s"),
+				*Node.SourceNodeId.ToString(),*Node.Definition.ObjectiveId.ToString(),*GetNameSafe(Source->GetOwner()),*Node.SourceSlot.ToString());
+		}
+	}
+
+	return true;
+}
+
+void AFR_LevelGameMode::ClearObjectiveSourceBindings()
+{
+	TArray<UFR_ObjectiveSourceComponent*> Sources;
+	CollectObjectiveSources(Sources);
+
+	for (UFR_ObjectiveSourceComponent* Source : Sources)
+	{
+		if (Source)
+		{
+			Source->ClearObjectiveBindings();
+		}
 	}
 }
 
