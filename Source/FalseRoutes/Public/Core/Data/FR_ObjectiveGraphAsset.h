@@ -20,14 +20,13 @@ class FALSEROUTES_API UFR_ObjectiveGraphAsset : public UDataAsset
 public:
 
 	/** Корневой узел графа. Обычно это главная задача Escape.Warehouse. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Graph") FName RootNodeid;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Graph") FName RootNodeId;
 
 	/** Узел, после выполнения которого GameMode должен перевести матч в EscapeAvailable. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Graph") FName EscapeAvailableNodeId;
 
 	/** Узлы, из которые генератор может строить граф, NodeId должен быть уникальным */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Graph") TArray<FFR_ObjectiveNodeTemplate> NodeTemplates;
-
 
 	/** Максимальная глубина зависимостей от корневого узла. Защищает граф от чрезмерно длинных цепочек. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Graph", meta = (ClampMin = "1", ClampMax = "32")) int32 MaxDepth = 6;
@@ -42,5 +41,5 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Generation|Initial Satisfaction") TObjectPtr<UCurveFloat> InitialSatisfactionChanceCurve = nullptr;
 
 	/** Верхняя граница итоговой вероятности. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Generation|Initial Satisfaction", meta = (ClampMin = "0.0", ClampMax = "1.0")) float MaxSimultaneousRenderTargets = 0.65f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Generation|Initial Satisfaction", meta = (ClampMin = "0.0", ClampMax = "1.0")) float MaxInitialSatisfactionChance = 0.65f;
 };

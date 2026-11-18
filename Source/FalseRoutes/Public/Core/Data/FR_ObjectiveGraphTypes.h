@@ -11,8 +11,8 @@ struct FFR_ObjectiveRequirementVariant
 	GENERATED_BODY()
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) FName VariantId;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) float Weight = 0.f;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) EFR_ObjectiveRequirementMode ReqirementMode = EFR_ObjectiveRequirementMode::All;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) float Weight = 1.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) EFR_ObjectiveRequirementMode RequirementMode = EFR_ObjectiveRequirementMode::All;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) TArray<FName> RequiredNodeIds;
 };
 
@@ -41,8 +41,8 @@ struct FFR_GeneratedObjectiveNode
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) FName SourceNodeId;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) FFR_ObjectiveDefinition Definition;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) int32 Depth;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) bool bInitiallySatisfield;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) int32 Depth = 0.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) bool bInitiallySatisfied = false;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) FName DeviceSlot;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) FName SpawnGroup;
 };
@@ -52,11 +52,11 @@ struct FFR_GeneratedObjectiveGraph
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) int32 Seed;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) int32 Seed = 0;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) TArray<FFR_GeneratedObjectiveNode> Nodes;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) FName RootObjectiveId;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) FName EscapeAvailableObjectiveId;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) bool bUsedFallback;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) bool bUsedFallback = false;
 };
 
 USTRUCT(BlueprintType)
