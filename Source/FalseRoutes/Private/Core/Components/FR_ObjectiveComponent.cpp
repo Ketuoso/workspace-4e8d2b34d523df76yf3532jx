@@ -15,9 +15,9 @@ UFR_ObjectiveComponent::UFR_ObjectiveComponent()
 
 bool  UFR_ObjectiveComponent::RegisterObjective(const FFR_ObjectiveDefinition Definition)
 {
-	if (Definition.ObjectiveId.IsNone()) return;
-	if (ObjectiveDefinitions.Contains(Definition.ObjectiveId)) return;
-	if (Definition.RequiredObjectives.Contains(Definition.ObjectiveId)) return;
+	if (Definition.ObjectiveId.IsNone()) return false;
+	if (ObjectiveDefinitions.Contains(Definition.ObjectiveId)) return false;
+	if (Definition.RequiredObjectives.Contains(Definition.ObjectiveId)) return false;
 
 	FFR_ObjectiveDefinition NormalizedDefinition = Definition;
 	NormalizedDefinition.RequiredAmount = FMath::Max(1, NormalizedDefinition.RequiredAmount);
@@ -32,13 +32,14 @@ bool  UFR_ObjectiveComponent::RegisterObjective(const FFR_ObjectiveDefinition De
 	ObjectiveStates.Add(NormalizedDefinition.ObjectiveId, NewState);
 
 	OnObjectiveChangedDelegate.Broadcast(NormalizedDefinition.ObjectiveId);
+	return true;
 }
 
 bool UFR_ObjectiveComponent::RevealObjective(FName ObjectiveId)
 {
 	FFR_ObjectiveRuntimeState* State = ObjectiveStates.Find(ObjectiveId);
-	if (!State) return;
-	if (State->bIsDiscovered) return;
+	if (!State) return false;
+	if (State->bIsDiscovered) return false;
 	
 	State->bIsDiscovered = true;
 	if (State->Status == EFR_ObjectiveStatus::Hidden)
@@ -68,7 +69,7 @@ bool UFR_ObjectiveComponent::TryAdvanceObjective(FName ObjectiveId)
 	if (State->CurrentAmount >= RequiredAmount) return false;
 	
 	++State->CurrentAmount;
-	State->Status = State->CurrentAmount > +RequiredAmount ? EFR_ObjectiveStatus::Completed : EFR_ObjectiveStatus::InProgress;
+	State->Status = State->CurrentAmount >= RequiredAmount ? EFR_ObjectiveStatus::Completed : EFR_ObjectiveStatus::InProgress;
 	OnObjectiveChangedDelegate.Broadcast(ObjectiveId);
 	return true;
 }
@@ -170,16 +171,16 @@ void UFR_ObjectiveComponent::BeginPlay()
 
 bool UFR_ObjectiveComponent::AreRequirementsMet(const FFR_ObjectiveDefinition& Definition) const
 {
-	if (Definition.RequiredObjectives.Num() == 0) return false;
+	if (Definition.RequiredObjectives.Num() == 0) return true;
 	if (Definition.RequirementMode == EFR_ObjectiveRequirementMode::All)
 	{
-		for (auto& RequiredObjectiveId : Definition.RequiredObjectives)
+		for (const auto& RequiredObjectiveId : Definition.RequiredObjectives)
 		{
 			if (!IsObjectiveCompleted(RequiredObjectiveId)) return false;
 		}
 		return true;
 	}
-	for (auto& RequiredObjectiveId : Definition.RequiredObjectives)
+	for (const auto& RequiredObjectiveId : Definition.RequiredObjectives)
 	{
 		if (IsObjectiveCompleted(RequiredObjectiveId)) return true;
 	}
