@@ -30,9 +30,11 @@ struct FFR_ObjectiveNodeTemplate
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) bool bVisibleFromStart = false;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) bool bCanBeInitiallySatisfied = false;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) bool bRevealWithParent = true;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) bool bAutoCompleteWhenRequirementsMet = false;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) FName SourceSlot;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) FName SpawnGroup;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) TArray<FFR_ObjectiveRequirementVariant> RequirementVariants;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) TArray<FName> DiscoveryRequiredNodeIds;
 };
 
 USTRUCT(BlueprintType)

@@ -119,6 +119,23 @@ namespace FR_ObjectiveGraphGeneratorInternal
                     }
                 }
             }
+
+            for (const FName DiscoveryRequiredNodeId : NodeTemplate.DiscoveryRequiredNodeIds)
+            {
+                if (DiscoveryRequiredNodeId.IsNone())
+                {
+                    return Fail(OutError,FString::Printf(TEXT("Node %s contains an empty DiscoveryRequiredNodeId."), *NodeTemplate.NodeId.ToString()));
+                }
+                if (DiscoveryRequiredNodeId == NodeTemplate.NodeId)
+                {
+                    return Fail(OutError,FString::Printf(TEXT("Node %s depends on itself for discovery."),*NodeTemplate.NodeId.ToString()));
+                }
+
+                if (!State.TemplatesByNodeId.Contains(DiscoveryRequiredNodeId))
+                {
+                    return Fail(OutError,FString::Printf(TEXT("Node %s references unknown discovery node %s."),*NodeTemplate.NodeId.ToString(),*DiscoveryRequiredNodeId.ToString()));
+                }
+            }
         }
         return true;
     }
@@ -253,6 +270,18 @@ namespace FR_ObjectiveGraphGeneratorInternal
         NewNode.Definition.bMainObjective = NodeTemplate->bMainObjective;
         NewNode.Definition.bVisibleFromStart = NodeTemplate->bVisibleFromStart;
         NewNode.Definition.bRevealWithParent = NodeTemplate->bRevealWithParent;
+        NewNode.Definition.bAutoCompleteWhenRequirementsMet = NodeTemplate->bAutoCompleteWhenRequirementsMet;
+
+        for (const FName DiscoveryRequiredNodeId : NodeTemplate->DiscoveryRequiredNodeIds)
+        {
+            const FFR_ObjectiveNodeTemplate* DiscoveryRequiredTemplate = State.TemplatesByNodeId.FindRef(DiscoveryRequiredNodeId);
+
+            if (!DiscoveryRequiredTemplate)
+            {
+                return Fail(OutError,FString::Printf(TEXT("Discovery template was not found: %s"),*DiscoveryRequiredNodeId.ToString()));
+            }
+            NewNode.Definition.DiscoveryRequiredObjectives.Add(DiscoveryRequiredTemplate->ObjectiveId);
+        }
 
         const bool bCanBeInitiallySatisfied = NodeTemplate->bCanBeInitiallySatisfied &&  NodeTemplate->NodeId != State.Asset->RootNodeId && NodeTemplate->NodeId != State.Asset->EscapeAvailableNodeId;
 
@@ -407,6 +436,14 @@ namespace FR_ObjectiveGraphGeneratorInternal
                     return Fail(OutError,TEXT("Generated graph contains an unavailable SpawnGroup."));
                 }
             }
+            for (const FName DiscoveryRequiredObjectiveId : Node.Definition.DiscoveryRequiredObjectives)
+            {
+                if (!Definitions.Contains(DiscoveryRequiredObjectiveId))
+                {
+                    return Fail(OutError,FString::Printf(TEXT("Generated discovery dependency is missing: %s"),*DiscoveryRequiredObjectiveId.ToString()));
+                }
+            }
+
             Definitions.Add(Definition.ObjectiveId, &Definition);
         }
         if (!Definitions.Contains(Graph.RootObjectiveId) || !Definitions.Contains(Graph.EscapeAvailableObjectiveId))

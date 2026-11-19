@@ -74,7 +74,9 @@ bool AFR_LevelGameMode::RevealObjective(FName ObjectiveId)
 	if (!FRGameState || FRGameState->GetMatchPhase() != EFR_MatchPhase::Playing) return false;
 
 	UFR_ObjectiveComponent* Objectives = FRGameState->GetObjectiveComponent();
-	return Objectives && Objectives->RevealObjective(ObjectiveId);
+	if (!Objectives || !AreDiscoveryRequirementsMet(ObjectiveId)) return false;
+
+	return Objectives->RevealObjective(ObjectiveId);
 }
 
 bool AFR_LevelGameMode::TryAdvanceObjective(FName ObjectiveId, AActor* SourceActor)
@@ -121,8 +123,9 @@ bool AFR_LevelGameMode::RevealObjectiveWithRequirements(FName ObjectiveId)
 
 	FFR_ObjectiveDefinition Definition;
 	if (!Objectives->GetObjectiveDefinition(ObjectiveId, Definition)) return false;
+	if (!AreDiscoveryRequirementsMet(ObjectiveId)) return false;
 
-	bool bAnyObjectiveRevealed = Objectives->RevealObjective(ObjectiveId);
+	bool bAnyObjectiveRevealed = RevealObjective(ObjectiveId);
 
 	for (const FName RequiredObjectiveId :
 	Definition.RequiredObjectives)
@@ -133,7 +136,7 @@ bool AFR_LevelGameMode::RevealObjectiveWithRequirements(FName ObjectiveId)
 		if (!Objectives->GetObjectiveDefinition(RequiredObjectiveId,RequiredDefinition) ||!Objectives->GetObjectiveRuntimeState(RequiredObjectiveId,RequiredState)) continue;
 		if (RequiredState.Status == EFR_ObjectiveStatus::Completed || !RequiredDefinition.bRevealWithParent) continue;
 
-		const bool bRequirementRevealed = Objectives->RevealObjective(RequiredObjectiveId);
+		const bool bRequirementRevealed = RevealObjective(RequiredObjectiveId);
 		bAnyObjectiveRevealed = bAnyObjectiveRevealed || bRequirementRevealed;
 	}
 
@@ -155,6 +158,30 @@ bool AFR_LevelGameMode::RequestObjectiveDiscovery(FName ObjectiveId)
 	EvaluateObjectiveDiscovery(ObjectiveId);
 
 	// Возвращаем успех принятия запроса, а не факт немедленного раскрытия.
+	return true;
+}
+
+bool AFR_LevelGameMode::AreDiscoveryRequirementsMet(FName ObjectiveId) const
+{
+	AFR_GameState* FRGameState = GetGameState<AFR_GameState>();
+	if (!FRGameState) return false;
+
+	UFR_ObjectiveComponent* Objectives = FRGameState->GetObjectiveComponent();
+	if (!Objectives) return false;
+
+	FFR_ObjectiveDefinition Definition;
+	if (!Objectives->GetObjectiveDefinition(ObjectiveId, Definition)) return false;
+
+	for (const FName RequiredObjectiveId : Definition.DiscoveryRequiredObjectives)
+	{
+		FFR_ObjectiveRuntimeState RequiredState;
+		if (!Objectives->GetObjectiveRuntimeState(RequiredObjectiveId,RequiredState)) return false;
+
+		// Скрытое предварительное выполнение не открывает будущие ветки:
+		// игрок ещё не обнаружил соответствующую проблему.
+		if (!RequiredState.bIsDiscovered) return false;
+	}
+
 	return true;
 }
 
@@ -230,6 +257,8 @@ bool AFR_LevelGameMode::InitializeProceduralObjectives()
 
 	ActiveObjectiveGraph = MoveTemp(GeneratedGraph);
 	EscapeAvailableObjectiveId =ActiveObjectiveGraph.EscapeAvailableObjectiveId;
+
+	TryAutoCompleteObjectives();
 
 	UE_LOG(LogTemp,Display,TEXT("Procedural objectives initialized. EscapeAvailableObjectiveId=%s"),*EscapeAvailableObjectiveId.ToString());
 
@@ -516,11 +545,13 @@ bool AFR_LevelGameMode::EvaluateObjectiveDiscovery(FName ObjectiveId)
 		return false;
 	}
 
+	if (!AreDiscoveryRequirementsMet(ObjectiveId)) return false;
+
 	if (Objectives->AreObjectiveRequirementsMet(ObjectiveId))
 	{
 		// Удаляем запрос до Broadcast, чтобы исключить повторную обработку.
 		DiscoveryRequestedObjectiveIds.Remove(ObjectiveId);
-		return Objectives->RevealObjective(ObjectiveId);
+		return RevealObjective(ObjectiveId);
 	}
 
 	bool bAnyRequirementRevealed = false;
@@ -541,6 +572,45 @@ bool AFR_LevelGameMode::EvaluateObjectiveDiscovery(FName ObjectiveId)
 	}
 
 	return bAnyRequirementRevealed;
+}
+
+void AFR_LevelGameMode::TryAutoCompleteObjectives()
+{
+	if (bIsEvaluatingAutoCompletion || !IsProceduralObjectiveGraphActive()) return;
+
+	AFR_GameState* FRGameState = GetGameState<AFR_GameState>();
+	if (!FRGameState || FRGameState->GetMatchPhase() != EFR_MatchPhase::Playing) return;
+
+	UFR_ObjectiveComponent* Objectives = FRGameState->GetObjectiveComponent();
+	if (!Objectives) return;
+
+
+	bIsEvaluatingAutoCompletion = true;
+
+	for (const FFR_GeneratedObjectiveNode& Node : ActiveObjectiveGraph.Nodes)
+	{
+		const FFR_ObjectiveDefinition& Definition = Node.Definition;
+
+		if (!Definition.bAutoCompleteWhenRequirementsMet) continue;
+
+		// Сводная задача без требований считается ошибкой настройки,
+		// а не задачей, которую можно завершить немедленно.
+		if (Definition.RequiredObjectives.IsEmpty()) continue;
+		if (!Objectives->AreObjectiveRequirementsMet(Definition.ObjectiveId)) continue;
+
+		// TryCompletedObjective сам проверит:
+		// - обнаружена ли задача;
+		// - не завершена ли она ранее;
+		// - выполнены ли требования.
+		const bool bCompleted = Objectives->TryCompletedObjective(Definition.ObjectiveId);
+
+		if (bCompleted)
+		{
+			UE_LOG(LogTemp,Display,TEXT("Objective auto-completed: %s"),*Definition.ObjectiveId.ToString());
+		}
+	}
+
+	bIsEvaluatingAutoCompletion = false;
 }
 
 void AFR_LevelGameMode::RegisterTestObjectives()
@@ -595,6 +665,8 @@ void AFR_LevelGameMode::HandleObjectiveChanged(FName ObjectiveId)
 	{
 		EvaluateObjectiveDiscovery(RequestedObjectiveId);
 	}
+
+	TryAutoCompleteObjectives();
 
 	if (ObjectiveId != EscapeAvailableObjectiveId) return;
 

@@ -47,10 +47,16 @@ struct FFR_ObjectiveDefinition
 	bool bRevealWithParent = true;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	bool bAutoCompleteWhenRequirementsMet = false;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	EFR_ObjectiveRequirementMode RequirementMode = EFR_ObjectiveRequirementMode::All;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TArray<FName> RequiredObjectives;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TArray<FName> DiscoveryRequiredObjectives;
 };
 
 USTRUCT(BlueprintType)

@@ -32,6 +32,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Objectives") bool TryCompletedObjective(FName ObjectiveId, AActor* SourceActor);
 	UFUNCTION(BlueprintCallable, Category = "Objectives") bool RevealObjectiveWithRequirements(FName ObjectiveId);
 	UFUNCTION(BlueprintCallable, Category = "Objectives") bool RequestObjectiveDiscovery(FName ObjectiveId);
+	UFUNCTION(BlueprintPure, Category = "Objectives") bool AreDiscoveryRequirementsMet(FName ObjectiveId) const;
+
 
 	UFUNCTION(BlueprintCallable, Category = "MatchPhase") void RequestEscapeAvailable();
 	UFUNCTION(BlueprintCallable, Category = "MatchPhase") void RequestWin();
@@ -76,4 +78,7 @@ private:
 
 	bool EvaluateObjectiveDiscovery(FName ObjectiveId);
 	TSet<FName> DiscoveryRequestedObjectiveIds;
+
+	void TryAutoCompleteObjectives();
+	bool bIsEvaluatingAutoCompletion = false;
 };

@@ -81,9 +81,24 @@ bool AFR_ObjectiveTriggerBox::TryActivateObjective(AFR_CharacterBase* Character)
 
 	if (bRevealWhenEntered)
 	{
-		// false здесь может означать, что задача уже раскрыта.
-		// Это не мешает последующему завершению.
-		GameMode->RevealObjective(RuntimeObjectiveId);
+		const bool bRevealed = GameMode->RevealObjective(RuntimeObjectiveId);
+		AFR_GameState* FRGameState = World->GetGameState<AFR_GameState>();
+		const UFR_ObjectiveComponent* Objectives = FRGameState? FRGameState->GetObjectiveComponent() : nullptr;
+
+		FFR_ObjectiveRuntimeState RuntimeState;
+
+		const bool bAlreadyDiscovered =Objectives &&Objectives->GetObjectiveRuntimeState(RuntimeObjectiveId,RuntimeState) &&RuntimeState.bIsDiscovered;
+
+		if (!bRevealed && !bAlreadyDiscovered)
+		{
+			UE_LOG(LogTemp,Verbose,TEXT("Objective discovery is not allowed yet. Actor=%s | Objective=%s"),*GetName(),*RuntimeObjectiveId.ToString());
+
+			// Не расходуем bTriggerOnce:
+			// игрок сможет активировать триггер при следующем входе,
+			// когда соответствующая ветка станет доступной.
+			return false;
+		}
+
 		bActionSucceeded = true;
 	}
 
