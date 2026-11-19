@@ -12,4 +12,6 @@ namespace FR_ObjectiveIds
 	inline const FName GeneratorStart = FName(TEXT("Generator.Start"));
 
 	inline const FName DoorOpen = FName(TEXT("Door.Open"));
+
+	inline const FName GeneratorInspect = FName(TEXT("Generator.Inspect"));
 }

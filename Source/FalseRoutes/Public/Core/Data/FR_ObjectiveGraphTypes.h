@@ -29,6 +29,7 @@ struct FFR_ObjectiveNodeTemplate
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) bool bMainObjective = false;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) bool bVisibleFromStart = false;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) bool bCanBeInitiallySatisfied = false;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) bool bRevealWithParent = true;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) FName SourceSlot;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) FName SpawnGroup;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) TArray<FFR_ObjectiveRequirementVariant> RequirementVariants;

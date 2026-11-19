@@ -106,6 +106,41 @@ EFR_ObjectiveStatus UFR_ObjectiveComponent::GetObjectiveStatus(FName ObjectiveId
 	return State ? State->Status : EFR_ObjectiveStatus::Hidden;
 }
 
+bool UFR_ObjectiveComponent::AreObjectiveRequirementsMet(FName ObjectiveId) const
+{
+	const FFR_ObjectiveDefinition* Definition = ObjectiveDefinitions.Find(ObjectiveId);
+	return Definition && AreRequirementsMet(*Definition);
+}
+
+bool UFR_ObjectiveComponent::SetObjectiveInitiallySatisfied(FName ObjectiveId)
+{
+	const FFR_ObjectiveDefinition* Definition = ObjectiveDefinitions.Find(ObjectiveId);
+	FFR_ObjectiveRuntimeState* State = ObjectiveStates.Find(ObjectiveId);
+
+	if (!Definition || !State) return false;
+
+	const int32 RequiredAmount = FMath::Max(1, Definition->RequiredAmount);
+
+	// Повторное применение той же инициализации считаем успехом.
+	if (State->Status == EFR_ObjectiveStatus::Completed)
+	{
+		return !State->bIsDiscovered && State->CurrentAmount == RequiredAmount;
+	}
+
+	// Нельзя незаметно перезаписать уже обнаруженную
+	// или изменённую во время игры задачу.
+	if (State->bIsDiscovered || State->Status != EFR_ObjectiveStatus::Hidden || State->CurrentAmount != 0) return false;
+
+	State->CurrentAmount = RequiredAmount;
+	State->Status = EFR_ObjectiveStatus::Completed;
+	State->bIsDiscovered = false;
+
+	// CompletedBy намеренно остаётся пустым:
+	// задачу не выполнял конкретный игрок.
+	OnObjectiveChangedDelegate.Broadcast(ObjectiveId);
+	return true;
+}
+
 bool UFR_ObjectiveComponent::GetObjectiveDefinition(FName ObjectiveId, FFR_ObjectiveDefinition& OutDefinition) const
 {
 	const FFR_ObjectiveDefinition* Definition = ObjectiveDefinitions.Find(ObjectiveId);

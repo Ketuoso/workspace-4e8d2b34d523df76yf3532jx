@@ -124,15 +124,38 @@ bool AFR_LevelGameMode::RevealObjectiveWithRequirements(FName ObjectiveId)
 
 	bool bAnyObjectiveRevealed = Objectives->RevealObjective(ObjectiveId);
 
-	// Раскрываем только непосредственные требования.
-	// Не вызываем этот метод рекурсивно.
-	for (const FName RequiredObjectiveId : Definition.RequiredObjectives)
+	for (const FName RequiredObjectiveId :
+	Definition.RequiredObjectives)
 	{
+		FFR_ObjectiveDefinition RequiredDefinition;
+		FFR_ObjectiveRuntimeState RequiredState;
+
+		if (!Objectives->GetObjectiveDefinition(RequiredObjectiveId,RequiredDefinition) ||!Objectives->GetObjectiveRuntimeState(RequiredObjectiveId,RequiredState)) continue;
+		if (RequiredState.Status == EFR_ObjectiveStatus::Completed || !RequiredDefinition.bRevealWithParent) continue;
+
 		const bool bRequirementRevealed = Objectives->RevealObjective(RequiredObjectiveId);
 		bAnyObjectiveRevealed = bAnyObjectiveRevealed || bRequirementRevealed;
 	}
 
 	return bAnyObjectiveRevealed;
+}
+
+bool AFR_LevelGameMode::RequestObjectiveDiscovery(FName ObjectiveId)
+{
+	AFR_GameState* FRGameState = GetGameState<AFR_GameState>();
+	if (!FRGameState || FRGameState->GetMatchPhase() != EFR_MatchPhase::Playing) return false;
+
+	UFR_ObjectiveComponent* Objectives = FRGameState->GetObjectiveComponent();
+	if (!Objectives) return false;
+
+	FFR_ObjectiveDefinition Definition;
+	if (!Objectives->GetObjectiveDefinition(ObjectiveId, Definition)) return false;
+
+	DiscoveryRequestedObjectiveIds.Add(ObjectiveId);
+	EvaluateObjectiveDiscovery(ObjectiveId);
+
+	// Возвращаем успех принятия запроса, а не факт немедленного раскрытия.
+	return true;
 }
 
 bool AFR_LevelGameMode::CanTransition(EFR_MatchPhase CurrentPhase, EFR_MatchPhase NewPhase) const
@@ -224,7 +247,7 @@ bool AFR_LevelGameMode::ApplyGeneratedObjectiveGraph(const FFR_GeneratedObjectiv
 
 	if (!Objectives || Graph.Nodes.IsEmpty()) return false;
 
-	// Метод вызывается только для нового ObjectiveComponent в BeginPlay.
+	// Сначала регистрируем весь граф.
 	for (const FFR_GeneratedObjectiveNode& Node : Graph.Nodes)
 	{
 		if (!Objectives->RegisterObjective(Node.Definition))
@@ -234,6 +257,19 @@ bool AFR_LevelGameMode::ApplyGeneratedObjectiveGraph(const FFR_GeneratedObjectiv
 		}
 	}
 
+	// Только затем применяем предварительное выполнение.
+	// В этот момент все зависимости уже зарегистрированы.
+	for (const FFR_GeneratedObjectiveNode& Node : Graph.Nodes)
+	{
+		if (!Node.bInitiallySatisfied) continue;
+		if (!Objectives->SetObjectiveInitiallySatisfied(Node.Definition.ObjectiveId))
+		{
+			UE_LOG(LogTemp,Error,TEXT("Failed to apply initial satisfaction: %s"),*Node.Definition.ObjectiveId.ToString());
+			return false;
+		}
+
+		UE_LOG(LogTemp,Display,TEXT("Objective initially satisfied and hidden: %s"),*Node.Definition.ObjectiveId.ToString());
+	}
 	UE_LOG(LogTemp,Display,TEXT("Registered %d procedural objectives."),Graph.Nodes.Num());
 	return true;
 }
@@ -318,12 +354,14 @@ void AFR_LevelGameMode::LogGeneratedObjectiveGraph(const FFR_GeneratedObjectiveG
 			RequiredObjectives = TEXT("None");
 		}
 
-		UE_LOG(LogTemp,Display,TEXT("Node=%s | Objective=%s | Depth=%d | Mode=%d | Requires=[%s]"),
+		UE_LOG(LogTemp,Display, TEXT("Node=%s | Objective=%s | Depth=%d | Mode=%d | Requires=[%s] | InitiallySatisfied=%s | RevealWithParent=%s"),
 			*Node.SourceNodeId.ToString(),
 			*Node.Definition.ObjectiveId.ToString(),
 			Node.Depth,
 			static_cast<int32>(Node.Definition.RequirementMode),
-			*RequiredObjectives);
+			*RequiredObjectives,
+			Node.bInitiallySatisfied ? TEXT("true") : TEXT("false"),
+			Node.Definition.bRevealWithParent ? TEXT("true") : TEXT("false"));
 	}
 }
 
@@ -450,6 +488,61 @@ void AFR_LevelGameMode::ClearObjectiveSourceBindings()
 	}
 }
 
+bool AFR_LevelGameMode::EvaluateObjectiveDiscovery(FName ObjectiveId)
+{
+	if (!DiscoveryRequestedObjectiveIds.Contains(ObjectiveId)) return false;
+	
+	AFR_GameState* FRGameState = GetGameState<AFR_GameState>();
+	if (!FRGameState) return false;
+
+	UFR_ObjectiveComponent* Objectives = FRGameState->GetObjectiveComponent();
+	if (!Objectives) return false;
+
+
+	FFR_ObjectiveDefinition Definition;
+	FFR_ObjectiveRuntimeState State;
+
+	if (!Objectives->GetObjectiveDefinition(ObjectiveId, Definition) || !Objectives->GetObjectiveRuntimeState(ObjectiveId, State))
+	{
+		DiscoveryRequestedObjectiveIds.Remove(ObjectiveId);
+		return false;
+	}
+
+	// Отложенный запрос больше не нужен, если задача уже видима
+	// или была завершена без обнаружения.
+	if (State.bIsDiscovered || State.Status == EFR_ObjectiveStatus::Completed)
+	{
+		DiscoveryRequestedObjectiveIds.Remove(ObjectiveId);
+		return false;
+	}
+
+	if (Objectives->AreObjectiveRequirementsMet(ObjectiveId))
+	{
+		// Удаляем запрос до Broadcast, чтобы исключить повторную обработку.
+		DiscoveryRequestedObjectiveIds.Remove(ObjectiveId);
+		return Objectives->RevealObjective(ObjectiveId);
+	}
+
+	bool bAnyRequirementRevealed = false;
+
+	// Пока родитель не готов, показываем только оставшиеся
+	// непосредственные требования.
+	for (const FName RequiredObjectiveId :
+	Definition.RequiredObjectives)
+	{
+		FFR_ObjectiveDefinition RequiredDefinition;
+		FFR_ObjectiveRuntimeState RequiredState;
+
+		if (!Objectives->GetObjectiveDefinition(RequiredObjectiveId,RequiredDefinition) ||!Objectives->GetObjectiveRuntimeState(RequiredObjectiveId,RequiredState)) continue;
+		if (RequiredState.Status == EFR_ObjectiveStatus::Completed || !RequiredDefinition.bRevealWithParent) continue;
+
+		const bool bRevealed = Objectives->RevealObjective(RequiredObjectiveId);
+		bAnyRequirementRevealed = bAnyRequirementRevealed || bRevealed;
+	}
+
+	return bAnyRequirementRevealed;
+}
+
 void AFR_LevelGameMode::RegisterTestObjectives()
 {
 	AFR_GameState* FRGameState =GetGameState<AFR_GameState>();
@@ -496,11 +589,18 @@ void AFR_LevelGameMode::RegisterTestObjectives()
 
 void AFR_LevelGameMode::HandleObjectiveChanged(FName ObjectiveId)
 {
+	const TArray<FName> RequestedObjectiveIds = DiscoveryRequestedObjectiveIds.Array();
+
+	for (const FName RequestedObjectiveId : RequestedObjectiveIds)
+	{
+		EvaluateObjectiveDiscovery(RequestedObjectiveId);
+	}
+
 	if (ObjectiveId != EscapeAvailableObjectiveId) return;
 
 	AFR_GameState* FRGameState = GetGameState<AFR_GameState>();
-	if (!FRGameState) return;
 
+	if (!FRGameState) return;
 	UFR_ObjectiveComponent* Objectives = FRGameState->GetObjectiveComponent();
 
 	if (Objectives && Objectives->IsObjectiveCompleted(EscapeAvailableObjectiveId))

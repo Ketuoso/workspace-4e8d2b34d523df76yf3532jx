@@ -14,4 +14,8 @@ class FALSEROUTES_API AFR_CharacterRunner : public AFR_CharacterBase
 {
 	GENERATED_BODY()
 	
+
+public:
+
+
 };

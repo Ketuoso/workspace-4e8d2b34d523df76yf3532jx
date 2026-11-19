@@ -25,6 +25,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Objectives") bool TryCompletedObjective(FName ObjectiveId);
 	UFUNCTION(BlueprintPure, Category = "Objectives") bool IsObjectiveCompleted(FName ObjectiveId) const;
 	UFUNCTION(BlueprintPure, Category = "Objectives") EFR_ObjectiveStatus GetObjectiveStatus(FName ObjectiveId) const;
+	UFUNCTION(BlueprintPure, Category = "Objectives") bool AreObjectiveRequirementsMet(FName ObjectiveId) const;
+
+	bool SetObjectiveInitiallySatisfied(FName ObjectiveId);
 
 	UFUNCTION(BlueprintPure, Category = "Objectives") bool GetObjectiveDefinition( FName ObjectiveId,FFR_ObjectiveDefinition& OutDefinition) const;
 	UFUNCTION(BlueprintPure, Category = "Objectives") bool GetObjectiveRuntimeState(FName ObjectiveId,FFR_ObjectiveRuntimeState& OutState) const;

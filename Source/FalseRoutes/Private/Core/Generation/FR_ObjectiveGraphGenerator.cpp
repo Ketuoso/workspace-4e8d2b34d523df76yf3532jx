@@ -252,6 +252,16 @@ namespace FR_ObjectiveGraphGeneratorInternal
         NewNode.Definition.DisplayOrder = NodeTemplate->DisplayOrder;
         NewNode.Definition.bMainObjective = NodeTemplate->bMainObjective;
         NewNode.Definition.bVisibleFromStart = NodeTemplate->bVisibleFromStart;
+        NewNode.Definition.bRevealWithParent = NodeTemplate->bRevealWithParent;
+
+        const bool bCanBeInitiallySatisfied = NodeTemplate->bCanBeInitiallySatisfied &&  NodeTemplate->NodeId != State.Asset->RootNodeId && NodeTemplate->NodeId != State.Asset->EscapeAvailableNodeId;
+
+        if (bCanBeInitiallySatisfied && State.Asset->InitialSatisfactionChanceCurve)
+        {
+            const float MaxChance = FMath::Clamp(State.Asset->MaxInitialSatisfactionChance,0.f,1.f);
+            const float InitialChance = FMath::Clamp(State.Asset->InitialSatisfactionChanceCurve->GetFloatValue(static_cast<float>(Depth)),0.f,MaxChance);
+            NewNode.bInitiallySatisfied = State.Random.FRand() < InitialChance;
+        }
 
         if (SelectedVariant != nullptr)
         {

@@ -44,6 +44,9 @@ struct FFR_ObjectiveDefinition
 	bool bVisibleFromStart = false;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	bool bRevealWithParent = true;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	EFR_ObjectiveRequirementMode RequirementMode = EFR_ObjectiveRequirementMode::All;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)

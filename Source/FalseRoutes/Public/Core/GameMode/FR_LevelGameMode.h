@@ -31,6 +31,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Objectives") bool TryAdvanceObjective(FName ObjectiveId, AActor* SourceActor);
 	UFUNCTION(BlueprintCallable, Category = "Objectives") bool TryCompletedObjective(FName ObjectiveId, AActor* SourceActor);
 	UFUNCTION(BlueprintCallable, Category = "Objectives") bool RevealObjectiveWithRequirements(FName ObjectiveId);
+	UFUNCTION(BlueprintCallable, Category = "Objectives") bool RequestObjectiveDiscovery(FName ObjectiveId);
 
 	UFUNCTION(BlueprintCallable, Category = "MatchPhase") void RequestEscapeAvailable();
 	UFUNCTION(BlueprintCallable, Category = "MatchPhase") void RequestWin();
@@ -72,4 +73,7 @@ private:
 	bool BindGeneratedObjectivesToSources(const FFR_GeneratedObjectiveGraph& Graph);
 
 	void ClearObjectiveSourceBindings();
+
+	bool EvaluateObjectiveDiscovery(FName ObjectiveId);
+	TSet<FName> DiscoveryRequestedObjectiveIds;
 };
