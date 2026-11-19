@@ -29,8 +29,8 @@ void AFR_Generator::Interact_Implementation(AFR_CharacterBase* Interactor)
 
 	if (!ResolveObjectiveId(FR_ObjectiveIds::GeneratorRepair,RepairObjectiveId) ||!ResolveObjectiveId(FR_ObjectiveIds::GeneratorStart,StartObjectiveId)) return;
 
-	GameMode->RevealObjective(FR_ObjectiveIds::GeneratorRepair);
-	GameMode->RevealObjective(FR_ObjectiveIds::GeneratorStart);
+	GameMode->RevealObjective(RepairObjectiveId);
+	GameMode->RevealObjective(StartObjectiveId);
 
 	StartRepair(Interactor);
 

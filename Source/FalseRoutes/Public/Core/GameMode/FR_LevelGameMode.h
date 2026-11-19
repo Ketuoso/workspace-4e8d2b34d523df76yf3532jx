@@ -30,6 +30,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Objectives") bool RevealObjective(FName ObjectiveId);
 	UFUNCTION(BlueprintCallable, Category = "Objectives") bool TryAdvanceObjective(FName ObjectiveId, AActor* SourceActor);
 	UFUNCTION(BlueprintCallable, Category = "Objectives") bool TryCompletedObjective(FName ObjectiveId, AActor* SourceActor);
+	UFUNCTION(BlueprintCallable, Category = "Objectives") bool RevealObjectiveWithRequirements(FName ObjectiveId);
 
 	UFUNCTION(BlueprintCallable, Category = "MatchPhase") void RequestEscapeAvailable();
 	UFUNCTION(BlueprintCallable, Category = "MatchPhase") void RequestWin();

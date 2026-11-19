@@ -111,6 +111,30 @@ bool AFR_LevelGameMode::TryCompletedObjective(FName ObjectiveId, AActor* SourceA
 	return bCompleted;
 }
 
+bool AFR_LevelGameMode::RevealObjectiveWithRequirements(FName ObjectiveId)
+{
+	AFR_GameState* FRGameState = GetGameState<AFR_GameState>();
+	if (!FRGameState || FRGameState->GetMatchPhase() != EFR_MatchPhase::Playing) return false;
+
+	UFR_ObjectiveComponent* Objectives = FRGameState->GetObjectiveComponent();
+	if (!Objectives) return false;
+
+	FFR_ObjectiveDefinition Definition;
+	if (!Objectives->GetObjectiveDefinition(ObjectiveId, Definition)) return false;
+
+	bool bAnyObjectiveRevealed = Objectives->RevealObjective(ObjectiveId);
+
+	// Раскрываем только непосредственные требования.
+	// Не вызываем этот метод рекурсивно.
+	for (const FName RequiredObjectiveId : Definition.RequiredObjectives)
+	{
+		const bool bRequirementRevealed = Objectives->RevealObjective(RequiredObjectiveId);
+		bAnyObjectiveRevealed = bAnyObjectiveRevealed || bRequirementRevealed;
+	}
+
+	return bAnyObjectiveRevealed;
+}
+
 bool AFR_LevelGameMode::CanTransition(EFR_MatchPhase CurrentPhase, EFR_MatchPhase NewPhase) const
 {
 	if (CurrentPhase == NewPhase)
