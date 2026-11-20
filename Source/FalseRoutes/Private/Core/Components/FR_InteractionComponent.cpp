@@ -8,6 +8,7 @@
 #include "Components/SphereComponent.h"
 #include "Core/GameState/FR_GameState.h"
 #include "Engine/World.h"
+#include "Core/Character/FR_CharacterRunner.h"
 
 
 UFR_InteractionComponent::UFR_InteractionComponent()
@@ -91,6 +92,10 @@ void UFR_InteractionComponent::StopInteractionUpdates()
 
 void UFR_InteractionComponent::RefreshInteraction()
 {
+	if (AFR_CharacterRunner* Runner = Cast<AFR_CharacterRunner>(OwnerCharacter))
+	{
+		SetCurrentInteractableActor(Runner->GetHiddenActor());
+	}
 	if (!CanUpdateInteraction())
 	{
 		ClearInteractionTarget();

@@ -436,6 +436,29 @@ namespace FR_ObjectiveGraphGeneratorInternal
                     return Fail(OutError,TEXT("Generated graph contains an unavailable SpawnGroup."));
                 }
             }
+
+            Definitions.Add(Definition.ObjectiveId, &Definition);
+        }
+        if (!Definitions.Contains(Graph.RootObjectiveId) || !Definitions.Contains(Graph.EscapeAvailableObjectiveId))
+        {
+            return Fail(OutError,TEXT("Generated graph is missing root or escape objective."));
+        }
+
+        if (!Definitions.Contains(Graph.RootObjectiveId) || !Definitions.Contains(Graph.EscapeAvailableObjectiveId))
+        {
+            return Fail(OutError,TEXT("Generated graph is missing root or escape objective."));
+        }
+
+        // На этом этапе Definitions уже содержит все узлы графа.
+        for (const auto& Node : Graph.Nodes)
+        {
+            for (const FName RequiredObjectiveId : Node.Definition.RequiredObjectives)
+            {
+                if (!Definitions.Contains(RequiredObjectiveId))
+                {
+                    return Fail(OutError,FString::Printf(TEXT("Generated dependency is missing: %s"),*RequiredObjectiveId.ToString()));
+                }
+            }
             for (const FName DiscoveryRequiredObjectiveId : Node.Definition.DiscoveryRequiredObjectives)
             {
                 if (!Definitions.Contains(DiscoveryRequiredObjectiveId))
@@ -443,12 +466,6 @@ namespace FR_ObjectiveGraphGeneratorInternal
                     return Fail(OutError,FString::Printf(TEXT("Generated discovery dependency is missing: %s"),*DiscoveryRequiredObjectiveId.ToString()));
                 }
             }
-
-            Definitions.Add(Definition.ObjectiveId, &Definition);
-        }
-        if (!Definitions.Contains(Graph.RootObjectiveId) || !Definitions.Contains(Graph.EscapeAvailableObjectiveId))
-        {
-            return Fail(OutError,TEXT("Generated graph is missing root or escape objective."));
         }
 
         for (const auto& Node : Graph.Nodes)
@@ -522,6 +539,8 @@ bool UFR_ObjectiveGraphGenerator::GenerateGraph(const UFR_ObjectiveGraphAsset* G
 
         Candidate.RootObjectiveId = RootTemplate->ObjectiveId;
         Candidate.EscapeAvailableObjectiveId = EscapeTemplate->ObjectiveId;
+
+
 
         if (!RecalculateNodeDepth(Candidate, AttemptError) || !ValidateGeneratedGraph(Candidate, Context, *GraphAsset, AttemptError))
         {

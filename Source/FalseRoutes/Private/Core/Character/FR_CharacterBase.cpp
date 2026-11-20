@@ -11,6 +11,11 @@
 #include "Core/GameState/FR_GameState.h"
 #include "Core/Interface/FR_Interactable.h"
 #include "Core/Components/FR_InteractionComponent.h"
+#include "Kismet/KismetRenderingLibrary.h"
+#include "Kismet/KismetMathLibrary.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "Engine/Canvas.h"
+
 
 
 AFR_CharacterBase::AFR_CharacterBase()
@@ -110,6 +115,9 @@ void AFR_CharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	InizializationRenderTarget();
+
+	GetWorldTimerManager().SetTimer(RefreshFOGTimer, this, &AFR_CharacterBase::RefreshFOG, 0.025f, true);
 }
 
 
@@ -123,6 +131,152 @@ void AFR_CharacterBase::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
+}
+
+void AFR_CharacterBase::InizializationRenderTarget()
+{
+	if (!IsLocallyControlled()) return;
+
+	FOG_RT = UKismetRenderingLibrary::CreateRenderTarget2D(this, FOG_WorldSpan, FOG_WorldSpan, ETextureRenderTargetFormat::RTF_RGBA8, FLinearColor::Black, false, false);
+	if (!FOG_Material) return;
+
+	FOG_MID = UMaterialInstanceDynamic::Create(FOG_Material, this);
+	Camera->AddOrUpdateBlendable(FOG_MID, 1.f);
+
+	FOG_MID->SetTextureParameterValue(TEXT("VisionMask"), FOG_RT);
+	FOG_MID->SetVectorParameterValue(TEXT("FogOrigin"), FVector4(FOG_OriginXY.X, FOG_OriginXY.Y, FOG_OriginXY.Y,0.f));
+	FOG_MID->SetScalarParameterValue(TEXT("FogWorldSpan"), FOG_WorldSpan);
+}
+
+void AFR_CharacterBase::UpdateFOGOrigin()
+{
+	float HalfSpan = 0.f;
+
+	HalfSpan = FOG_WorldSpan / 2.f;
+	FOG_OriginXY.X = GetActorLocation().X - HalfSpan;
+	FOG_OriginXY.Y = GetActorLocation().Y - HalfSpan;
+}
+
+void AFR_CharacterBase::UpdateFrontVisionRays()
+{
+	FrontVisionPoints.Empty();
+
+	for (int32 Index = 0; Index < FrontRayCount + 1; Index++)
+	{
+		float CurrentRayAngle = (-ViewingAngle / 2) + (Index * ViewingAngle / FrontRayCount);
+		const FVector Forward2D = GetActorForwardVector().GetSafeNormal2D();
+		FVector RayDirection = (Forward2D.RotateAngleAxis(CurrentRayAngle, FVector::UpVector)) * ForwardVisiondDistance;
+
+		FHitResult HitResult;
+		FVector StartRay = FVector(GetActorLocation().X,GetActorLocation().Y,GetActorLocation().Z + OffsetLocationToZ);
+		FVector EndRay = StartRay + RayDirection;
+		FCollisionQueryParams CollisionQueryParams;
+		CollisionQueryParams.AddIgnoredActor(this);
+		if (GetWorld()->LineTraceSingleByChannel(HitResult,StartRay, EndRay, ECollisionChannel::ECC_Visibility, CollisionQueryParams))
+		{
+			FrontVisionPoints.Add(HitResult.Location);
+		}
+		else
+		{
+			FrontVisionPoints.Add(EndRay);
+		}
+	}
+	BuildFrontFOGTriangles();
+}
+
+void AFR_CharacterBase::UpdateNearVisionRays()
+{
+	NearVisionPoints.Empty();
+
+	for (int32 Index = 0; Index < NearRayCount; Index++)
+	{
+		float CurrentRayAngle = Index * (360.f / NearRayCount);
+		FVector RayDirection = (FVector(1.f,0.f,0.f).RotateAngleAxis(CurrentRayAngle, FVector::UpVector)) * NearVisionRadius;
+		
+		FHitResult HitResult;
+		FVector StartRay = FVector(GetActorLocation().X, GetActorLocation().Y, GetActorLocation().Z + OffsetLocationToZ);
+		FVector EndRay = StartRay + RayDirection;
+		FCollisionQueryParams CollisionQueryParams;
+		CollisionQueryParams.AddIgnoredActor(this);
+		if (GetWorld()->LineTraceSingleByChannel(HitResult, StartRay, EndRay, ECollisionChannel::ECC_Visibility, CollisionQueryParams))
+		{
+			NearVisionPoints.Add(HitResult.Location);
+		}
+		else
+		{
+			NearVisionPoints.Add(EndRay);
+		}
+	}
+	DrawNearFOGMask();
+}
+
+void AFR_CharacterBase::BuildFrontFOGTriangles()
+{
+	FrontFOGTriangles.Empty();
+
+	for (int32 Index = 0; Index < FrontRayCount; Index++)
+	{
+		FCanvasUVTri CurrentCanvasUVTri;
+		CurrentCanvasUVTri.V0_Pos = WorldToFOGPixel(GetActorLocation());
+		CurrentCanvasUVTri.V0_Color = FLinearColor::White;
+		CurrentCanvasUVTri.V1_Pos = WorldToFOGPixel(FrontVisionPoints[Index]);
+		CurrentCanvasUVTri.V1_Color = FLinearColor::White;
+		CurrentCanvasUVTri.V2_Pos = WorldToFOGPixel(FrontVisionPoints[(Index + 1)]);
+		CurrentCanvasUVTri.V2_Color = FLinearColor::White;
+
+		FrontFOGTriangles.Add(CurrentCanvasUVTri);
+	}
+}
+
+void AFR_CharacterBase::DrawNearFOGMask()
+{
+	if (NearVisionPoints.Num() != NearRayCount) return;
+	NearFOGTriangles.Empty();
+
+	for (int32 Index = 0; Index < NearRayCount; Index++)
+	{
+		FCanvasUVTri CurrentCanvasUVTri;
+		CurrentCanvasUVTri.V0_Pos = WorldToFOGPixel(GetActorLocation());
+		CurrentCanvasUVTri.V0_Color = FLinearColor::White;
+		CurrentCanvasUVTri.V1_Pos = WorldToFOGPixel(NearVisionPoints[Index]);
+		CurrentCanvasUVTri.V1_Color = FLinearColor::White;
+		CurrentCanvasUVTri.V2_Pos = WorldToFOGPixel(NearVisionPoints[(Index + 1) % NearRayCount]);
+		CurrentCanvasUVTri.V2_Color = FLinearColor::White;
+
+		NearFOGTriangles.Add(CurrentCanvasUVTri);
+	}
+	
+	
+	if (FOG_RT && FOG_MID)
+	{
+		UKismetRenderingLibrary::ClearRenderTarget2D(this, FOG_RT, FLinearColor::Black);
+		UCanvas* OutCanvas;
+		FVector2D OutSize;
+		FDrawToRenderTargetContext OutContext;
+		UKismetRenderingLibrary::BeginDrawCanvasToRenderTarget(this, FOG_RT, OutCanvas, OutSize, OutContext);
+		OutCanvas->K2_DrawTriangle(nullptr, NearFOGTriangles);
+		OutCanvas->K2_DrawTriangle(nullptr, FrontFOGTriangles);
+		UKismetRenderingLibrary::EndDrawCanvasToRenderTarget(this, OutContext);
+		FOG_MID->SetVectorParameterValue(TEXT("FogOrigin"), FVector4(FOG_OriginXY.X, FOG_OriginXY.Y, 0.f, 1.f));
+	}
+	
+}
+
+FVector2D AFR_CharacterBase::WorldToFOGPixel(FVector WorldLocation)
+{
+	FVector2D PixelPosition;
+	PixelPosition.X = ((WorldLocation.X - FOG_OriginXY.X) / FOG_WorldSpan) * 2048.f;
+	PixelPosition.Y = ((WorldLocation.Y - FOG_OriginXY.Y) / FOG_WorldSpan) * 2048.f;
+	return PixelPosition;
+}
+
+void AFR_CharacterBase::RefreshFOG()
+{
+	if (!FOG_RT) return;
+
+	UpdateFOGOrigin();
+	UpdateFrontVisionRays();
+	UpdateNearVisionRays();
 }
 
 

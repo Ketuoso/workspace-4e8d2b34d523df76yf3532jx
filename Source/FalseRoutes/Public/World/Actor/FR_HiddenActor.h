@@ -27,10 +27,10 @@ protected:
 
 	virtual void BeginPlay() override;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Objectives") TObjectPtr<USceneComponent> Root;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Objectives") TObjectPtr<USceneComponent> ExitPoint;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Objectives") TObjectPtr<USceneComponent> HidePoint;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Objectives") TObjectPtr<UStaticMeshComponent> HideSpot;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Objectives") TObjectPtr<UArrowComponent> ForwardHideSpot;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "HideSpot") TObjectPtr<USceneComponent> Root;
+	UPROPERTY(EditAnywhere, Category = "HideSpot") TObjectPtr<USceneComponent> ExitPoint;
+	UPROPERTY(EditAnywhere, Category = "HideSpot") TObjectPtr<USceneComponent> HidePoint;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "HideSpot") TObjectPtr<UStaticMeshComponent> HideSpot;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "HideSpot") TObjectPtr<UArrowComponent> ForwardHideSpot;
 
 };
